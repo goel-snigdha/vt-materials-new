@@ -7,3 +7,4 @@ PyJWT
 python-dotenv
 streamlit
 pypdf
+matplotlib
