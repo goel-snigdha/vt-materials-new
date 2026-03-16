@@ -1,0 +1,20 @@
+serial,name,color,length,stock, total_weight
+101,Grille,,23000,10000,940.78
+103,Grille,,5500,10000,940.78
+104,Grille,,4650,10000,940.78
+105,Grille,,3250,10000,940.78
+106,Grille,,3050,10000,940.78
+107,Grille,,3650,10000,940
+102,Grille,,4200,10000,940.78
+110,Grille,Bronze Anodize,850,282,102.83
+111,Grille,Bronze Anodize,4050,1000,100.00
+112,Grille,Bronze Anodize,3750,1000,100.00
+113,Grille,Nair-2200,3600,4,6.18
+115,Grille,Nair-2200,1750,3,2.25
+116,Grille,Nair-2200,1650,1,0.71
+117,Grille,Wood finish,1750,8,6.01
+118,Grille,Silver color,1750,3,2.25
+119,Grille,Bronze Color,1850,0,  -
+121,Grille,Bronze Color,1500,1,0.64
+100,Grille,powder coated,1500,100,3.60
+139,Carrier,Mill Finish,3000,100000,1.28
