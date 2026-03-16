@@ -418,7 +418,7 @@ def generate_installer_xl(inst_xl, area_data, common_vars):
         # )
         subprocess.run(
             [lo_bin, "--headless", "--norestore",
-            "--convert-to", "pdf:calc_pdf_Export",
+            "--convert-to", "pdf",
             "--outdir", tmp_dir, xlsx_path],
             check=True, capture_output=True,
             env={**os.environ, "HOME": "/tmp"}
