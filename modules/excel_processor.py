@@ -399,23 +399,10 @@ def generate_installer_xl(inst_xl, area_data, common_vars):
         fill_cut_plan(ws, row["cut_plan"])
 
         xlsx_path = os.path.join(tmp_dir, f"window_{idx}.xlsx")
-        # from openpyxl.worksheet.properties import WorksheetProperties, PageSetupProperties
-
-        # ws.sheet_properties = WorksheetProperties()
-        # ws.sheet_properties.pageSetUpPr = PageSetupProperties(fitToPage=True)
-
-        # ws.page_setup.paperSize  = ws.PAPERSIZE_A4
-        # ws.page_setup.fitToWidth = 1
-        # ws.page_setup.fitToHeight = 0
-        # ws.page_margins = PageMargins(left=0.5, right=0.5, top=0.5, bottom=0.5)
-        # ws.page_margins = PageMargins(left=0.5, right=0.5, top=0.5, bottom=0.5)
+        ws.page_setup.paperSize   = 10
         wb.save(xlsx_path)
 
         lo_bin = get_libreoffice_path()
-        # subprocess.run(
-        #     [lo_bin, "--headless", "--convert-to", "pdf", "--outdir", tmp_dir, xlsx_path],
-        #     check=True, capture_output=True
-        # )
         subprocess.run(
             [lo_bin, "--headless", "--norestore",
             "--convert-to", "pdf",
