@@ -202,7 +202,7 @@ def set_cell(sheet_type, cell, value, bold=False, alignment="center", size=10):
         "offer": "Montserrat",
         "profile": "Times New Roman",
         "inventory": "Times New Roman",
-        "installer": "Helvetica"
+        "installer": "Arial"
     }
     row_height_map = {
         "offer": 30
@@ -507,7 +507,7 @@ def add_dropdown(xl, lst):
     return xl, dv
 
 
-def generate_window_image(row, common_vars):
+def generate_window_image(row, common_vars, product_config):
 
     plt.rcdefaults()
 
@@ -515,7 +515,8 @@ def generate_window_image(row, common_vars):
     height = row["height"]
     orient = row["orientation"]
     cuts   = row["cut_summary"]
-    carrier_distances = row.get("carrier_distances", [])
+
+    carrier_distances = row.get("carrier_distances", []) if product_config.get("show_carriers", False) else []
 
     N_BARS = 20
 
@@ -525,7 +526,7 @@ def generate_window_image(row, common_vars):
     else:
         W, H = 380, 300
 
-    ax.set_xlim(-120, W + 220)
+    ax.set_xlim(-120, W + 280)
     ax.set_ylim(-70, H + 70)
     ax.set_aspect("equal")
     ax.axis("off")
@@ -538,30 +539,10 @@ def generate_window_image(row, common_vars):
     ax.add_patch(frame)
 
     # ── Right side info panel ──
-    pitch        = common_vars.get("pitch", "")
-    divisions    = row.get("divisions", "")
-
-    cut_summary = row.get("cut_summary", "")
-    if len(cut_summary) > 1:
-        cut_summary_str = "+".join(str(c) for c in cut_summary)
-    else:
-        cut_summary_str = f"Single Piece {cut_summary[0]} mm"
-
-    direction = row["louver_direction"]
-
-    info_lines = [
-        (f"{divisions} Divisions",    "#333",   12,  True),
-        (f"@ {pitch} mm Pitch",       "#333",   12,  True),
-        ("",       "#333",   12,  True),
-        ("Breakdown",        "#333",   12,  False),
-        (f"{cut_summary_str}",        "#333",   12,  True),
-        ("Grille Direction",        "#333",   12,  False),
-        (f"{direction}",        "#333",   12,  True),
-    ]
-
-    line_gap = 22
-    info_x = W + 180
-    start_y = H * 0.7
+    info_lines = product_config.get("info_lines", [])
+    line_gap   = 22
+    info_x     = W + 180
+    start_y    = H * 0.7
     for i, (text, color, size, bold) in enumerate(info_lines):
         ax.text(
             info_x, start_y - i * line_gap,
@@ -572,7 +553,7 @@ def generate_window_image(row, common_vars):
             fontweight="bold" if bold else "normal",
         )
 
-    # Build cumulative joint positions
+    # ── Cumulative joint positions ──
     total = sum(cuts)
     cumulatives = []
     c = 0
@@ -580,35 +561,20 @@ def generate_window_image(row, common_vars):
         c += cut
         cumulatives.append(c)
 
+    # ── Endcaps ──
     ENDCAP_SIZE = 6
-    # Map direction to which sides are active
-    endcap_choice = str(row.get("endcaps", "")).strip()
-    louver        = str(row.get("louver_direction", "")).strip()
-    num_L = row['num_L']
-    num_inverse_L = row['num_inverse_L']
+    draw_top = draw_bottom = draw_left = draw_right = False
 
-    if orient == "Vertical":
-        if louver == "Top L":
-            draw_top    = endcap_choice in ("Both sides", "Single Side - L")         and num_L > 0
-            draw_bottom = endcap_choice in ("Both sides", "Single Side - Inverse L") and num_inverse_L > 0
-        elif louver == "Top Inverse L":
-            draw_top    = endcap_choice in ("Both sides", "Single Side - Inverse L") and num_inverse_L > 0
-            draw_bottom = endcap_choice in ("Both sides", "Single Side - L")         and num_L > 0
-        else:
-            draw_top    = False
-            draw_bottom = False
-        draw_left  = False
-        draw_right = False
-
-    else:  # Horizontal
-        if louver == "Right L":
-            draw_right = endcap_choice in ("Both sides", "Single Side - L")         and num_L > 0
-            draw_left  = endcap_choice in ("Both sides", "Single Side - Inverse L") and num_inverse_L > 0
-        else:
-            draw_left  = False
-            draw_right = False
-        draw_top    = False
-        draw_bottom = False
+    if product_config.get("show_endcaps", False):
+        endcap_sides = product_config.get("endcap_sides", {})
+        draw_top    = endcap_sides.get("top",    False)
+        draw_bottom = endcap_sides.get("bottom", False)
+        draw_left   = endcap_sides.get("left",   False)
+        draw_right  = endcap_sides.get("right",  False)
+    
+    print(f"show_endcaps: {product_config.get('show_endcaps')}")
+    print(f"endcap_sides from config: {product_config.get('endcap_sides')}")
+    print(f"draw_top={draw_top} draw_bottom={draw_bottom} draw_left={draw_left} draw_right={draw_right}")
 
     def endcap(x, y):
         ax.add_patch(patches.Rectangle(
@@ -618,132 +584,152 @@ def generate_window_image(row, common_vars):
             facecolor="#F7E301", zorder=5
         ))
 
+    bar_color = product_config.get("bar_color", "#888")
+
     if orient == "Vertical":
         # ── Bars ──
         for i in range(N_BARS):
             x = (i + 0.5) * W / N_BARS
             if draw_top:    endcap(x, H)
             if draw_bottom: endcap(x, 0)
-            ax.plot([x, x], [0, H], color="#888", linewidth=1, zorder=3)
+            ax.plot([x, x], [0, H], color=bar_color, linewidth=1, zorder=3)
 
         # ── Joint lines + cumulative labels (right side) ──
-        for cum in cumulatives:
-            y_pos = (cum / total) * H
-            is_edge = (cum == total)
-            if not is_edge:
-                ax.plot([0, W], [y_pos, y_pos],
-                        color="#e63946", linewidth=1.8, zorder=4)
-            ax.text(W + 8, y_pos, f"{cum}", fontsize=12,
+        if product_config.get("show_joints", True):
+            for cum in cumulatives:
+                y_pos   = (cum / total) * H
+                is_edge = (cum == total)
+                if not is_edge:
+                    ax.plot([0, W], [y_pos, y_pos],
+                            color="#e63946", linewidth=1.8, zorder=4)
+                ax.text(W + 8, y_pos, f"{cum}", fontsize=12,
+                        va="center", ha="left", color="#e63946", fontweight="bold")
+
+            ax.text(W + 8, 0, "0", fontsize=12,
                     va="center", ha="left", color="#e63946", fontweight="bold")
 
-        # 0 at bottom right
-        ax.text(W + 8, 0, "0", fontsize=12,
-                va="center", ha="left", color="#e63946", fontweight="bold")
-
-        # ── Piece length labels (right side, between joints) ──
-        prev_y = 0
-        for cut, cum in zip(cuts, cumulatives):
-            y_pos = (cum / total) * H
-            mid_y = (prev_y + y_pos) / 2
-            ax.text(W + 8, mid_y, f"← {cut}", fontsize=12,
-                    va="center", ha="left", color="#555", fontweight="bold")
-            prev_y = y_pos
+            prev_y = 0
+            for cut, cum in zip(cuts, cumulatives):
+                y_pos = (cum / total) * H
+                mid_y = (prev_y + y_pos) / 2
+                ax.text(W + 8, mid_y, f"← {cut}", fontsize=12,
+                        va="center", ha="left", color="#555", fontweight="bold")
+                prev_y = y_pos
 
         # ── Carrier lines + labels (left side) ──
-        piece_start_y = 0
-        for piece_idx, (cut, cum) in enumerate(zip(cuts, cumulatives)):
-            piece_end_y = (cum / total) * H
-            piece_h_px  = piece_end_y - piece_start_y
-            piece_len   = cut
+        if product_config.get("show_carriers", False):
+            piece_start_y = 0
+            for piece_idx, (cut, cum) in enumerate(zip(cuts, cumulatives)):
+                piece_end_y = (cum / total) * H
+                piece_h_px  = piece_end_y - piece_start_y
+                piece_len   = cut
 
-            ax.text(-8, piece_start_y, "0", fontsize=12,
-                    va="center", ha="right", color="#2FB6DE", fontweight="bold")
+                ax.text(-8, piece_start_y, "0", fontsize=12,
+                        va="center", ha="right", color="#2FB6DE", fontweight="bold")
 
-            if piece_idx < len(carrier_distances):
-                for carrier_pos in carrier_distances[piece_idx]:
-                    y_carrier = piece_start_y + (carrier_pos / piece_len) * piece_h_px
-                    ax.plot([0, W], [y_carrier, y_carrier],
-                            color="#2FB6DE", linewidth=1.4,
-                            linestyle="--", zorder=4, alpha=0.85)
-                    ax.text(-8, y_carrier, f"{carrier_pos}", fontsize=12,
-                            va="center", ha="right", color="#2FB6DE", fontweight="bold")
+                if piece_idx < len(carrier_distances):
+                    for carrier_pos in carrier_distances[piece_idx]:
+                        y_carrier = piece_start_y + (carrier_pos / piece_len) * piece_h_px
+                        ax.plot([0, W], [y_carrier, y_carrier],
+                                color="#2FB6DE", linewidth=1.4,
+                                linestyle="--", zorder=4, alpha=0.85)
+                        ax.text(-8, y_carrier, f"{carrier_pos}", fontsize=12,
+                                va="center", ha="right", color="#2FB6DE", fontweight="bold")
 
-            piece_start_y = piece_end_y
+                piece_start_y = piece_end_y
 
     else:  # Horizontal
         # ── Bars ──
         for i in range(N_BARS):
+
             y = (i + 0.5) * H / N_BARS
             if draw_left:  endcap(0, y)
             if draw_right: endcap(W, y)
-            ax.plot([0, W], [y, y], color="#888", linewidth=1, zorder=3)
+            ax.plot([0, W], [y, y], color=bar_color, linewidth=1, zorder=3)
 
         # ── Joint lines + cumulative labels (bottom) ──
-        for cum in cumulatives:
-            x_pos = (cum / total) * W
-            is_edge = (cum == total)
-            if not is_edge:
-                ax.plot([x_pos, x_pos], [0, H],
-                        color="#e63946", linewidth=1.8, zorder=4)
-            ax.text(x_pos, -10, f"{cum}", fontsize=12,
+        if product_config.get("show_joints", True):
+            for cum in cumulatives:
+                x_pos   = (cum / total) * W
+                is_edge = (cum == total)
+                if not is_edge:
+                    ax.plot([x_pos, x_pos], [0, H],
+                            color="#e63946", linewidth=1.8, zorder=4)
+                ax.text(x_pos, -10, f"{cum}", fontsize=12,
+                        ha="center", va="top", color="#e63946", fontweight="bold")
+
+            ax.text(0, -10, "0", fontsize=12,
                     ha="center", va="top", color="#e63946", fontweight="bold")
 
-        # 0 at bottom left
-        ax.text(0, -10, "0", fontsize=12,
-                ha="center", va="top", color="#e63946", fontweight="bold")
-
-        # ── Piece length labels (below joint labels) ──
-        prev_x = 0
-        for cut, cum in zip(cuts, cumulatives):
-            x_pos = (cum / total) * W
-            mid_x = (prev_x + x_pos) / 2
-            ax.text(mid_x, -22, f"{cut}", fontsize=12,
-                    ha="center", va="top", color="#555", fontweight="bold")
-            prev_x = x_pos
+            prev_x = 0
+            for cut, cum in zip(cuts, cumulatives):
+                x_pos = (cum / total) * W
+                mid_x = (prev_x + x_pos) / 2
+                ax.text(mid_x, -22, f"{cut}", fontsize=12,
+                        ha="center", va="top", color="#555", fontweight="bold")
+                prev_x = x_pos
 
         # ── Carrier lines + labels (top side) ──
-        piece_start_x = 0
-        for piece_idx, (cut, cum) in enumerate(zip(cuts, cumulatives)):
-            piece_end_x = (cum / total) * W
-            piece_w_px  = piece_end_x - piece_start_x
-            piece_len   = cut
+        if product_config.get("show_carriers", False):
+            piece_start_x = 0
+            for piece_idx, (cut, cum) in enumerate(zip(cuts, cumulatives)):
+                piece_end_x = (cum / total) * W
+                piece_w_px  = piece_end_x - piece_start_x
+                piece_len   = cut
 
-            ax.text(piece_start_x, H + 8, "0", fontsize=10,
-                    va="bottom", ha="center", color="#2FB6DE",
-                    fontweight="bold", rotation=45)
+                ax.text(piece_start_x, H + 8, "0", fontsize=10,
+                        va="bottom", ha="center", color="#2FB6DE",
+                        fontweight="bold", rotation=45)
 
-            if piece_idx < len(carrier_distances):
-                for carrier_pos in carrier_distances[piece_idx]:
-                    x_carrier = piece_start_x + (carrier_pos / piece_len) * piece_w_px
-                    ax.plot([x_carrier, x_carrier], [0, H],
-                            color="#2FB6DE", linewidth=1.4,
-                            linestyle="--", zorder=4, alpha=0.85)
-                    ax.text(x_carrier, H + 8, f"{carrier_pos}", fontsize=10,
-                            va="bottom", ha="center", color="#2FB6DE",
-                            fontweight="bold", rotation=45)
+                if piece_idx < len(carrier_distances):
+                    for carrier_pos in carrier_distances[piece_idx]:
+                        x_carrier = piece_start_x + (carrier_pos / piece_len) * piece_w_px
+                        ax.plot([x_carrier, x_carrier], [0, H],
+                                color="#2FB6DE", linewidth=1.4,
+                                linestyle="--", zorder=4, alpha=0.85)
+                        ax.text(x_carrier, H + 8, f"{carrier_pos}", fontsize=10,
+                                va="bottom", ha="center", color="#2FB6DE",
+                                fontweight="bold", rotation=45)
 
-            piece_start_x = piece_end_x
+                piece_start_x = piece_end_x
 
-    # ── Width annotation (top) ──
+    # ── Product-specific extras ──
+    extras = product_config.get("extras")
+    if extras:
+        extras(ax, row, W, H, total)
+
+    # ── Width annotation ──
     ax.annotate("", xy=(W, H + 45), xytext=(0, H + 45),
-            arrowprops=dict(arrowstyle="<->", color="#333", lw=1.2))
+                arrowprops=dict(arrowstyle="<->", color="#333", lw=1.2))
     ax.text(W / 2, H + 50, f"Width: {width} mm",
             ha="center", va="bottom", fontsize=10,
             color="#333", fontweight="bold")
 
-    # ── Height annotation (left) ──
+    # ── Height annotation ──
     ax.annotate("", xy=(-80, H), xytext=(-80, 0),
                 arrowprops=dict(arrowstyle="<->", color="#333", lw=1.2))
     ax.text(-90, H / 2, f"Height: {height} mm",
             ha="right", va="center", fontsize=12,
             color="#333", fontweight="bold", rotation=90)
 
+    # ── Legend ──
     legend_elements = [
-        Line2D([0], [0], color="#888",    linewidth=1.5, label=common_vars.get("product", "Profile")),
-        Line2D([0], [0], color="#e63946", linewidth=1.8, label="Joint Line"),
-        Line2D([0], [0], color="#2FB6DE", linewidth=1.4, linestyle="--", label="Carrier"),
-        Patch(facecolor="#F7E301", edgecolor="#c4b800", label="Endcap"),
+        Line2D([0], [0], color=bar_color, linewidth=1.5, label=common_vars.get("product", "Profile")),
     ]
+    if product_config.get("show_joints", False):
+        legend_elements.append(
+            Line2D([0], [0], color="#e63946", linewidth=1.8, label="Joint Line"),
+        )
+    if product_config.get("show_carriers", False):
+        legend_elements.append(
+            Line2D([0], [0], color="#2FB6DE", linewidth=1.4, linestyle="--", label="Carrier")
+        )
+    if product_config.get("show_endcaps", False):
+        legend_elements.append(
+            Patch(facecolor="#F7E301", edgecolor="#c4b800", label="Endcap")
+        )
+    legend_extras = product_config.get("legend_extras", [])
+    legend_elements += legend_extras
 
     ax.legend(
         handles=legend_elements,
@@ -803,18 +789,22 @@ def fill_cut_plan(ws, cut_plan, start_row=70):
 
         # Merge stock length and stock qty across all cut rows
         if n > 1:
+            ws.merge_cells(f"A{current_row}:B{current_row + n - 1}")
             ws.merge_cells(f"C{current_row}:C{current_row + n - 1}")
             ws.merge_cells(f"D{current_row}:D{current_row + n - 1}")
+            ws.merge_cells(f"F{current_row}:G{current_row + n - 1}")
+        else:
+            ws.merge_cells(f"A{current_row}:B{current_row}")
+            ws.merge_cells(f"F{current_row}:G{current_row}")
 
-        set_cell("installer", ws[f"C{current_row}"], stock_length, alignment="center")
-        set_cell("installer", ws[f"D{current_row}"], stock_qty,    alignment="center")
+        set_cell("installer", ws[f"C{current_row}"], stock_qty,    alignment="center")
+        set_cell("installer", ws[f"D{current_row}"], stock_length, alignment="center")
 
         for i, cut_len in enumerate(cuts):
             row = current_row + i
             set_cell("installer", ws[f"E{row}"], cut_len,   alignment="center")
-            set_cell("installer", ws[f"F{row}"], stock_qty, alignment="center")
 
-            for col in ["C", "D", "E", "F"]:
+            for col in ["A", "B", "C", "D", "E", "F", "G"]:
                 apply_border(ws[f"{col}{row}"])
 
         current_row += n

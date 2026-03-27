@@ -384,42 +384,27 @@ def validate_cut_logic(parsed_data):
     return True
 
 
-def validate_required_fields(df, required_cols):
-    VERTICAL_LOUVER   = {"Top L", "Top Inverse L"}
-    HORIZONTAL_LOUVER = {"Right L"}
+def validate_required_fields(df, required_cols, extra_validator=None):
 
     df = df.dropna(how="all")
+
+    if len(df) == 0:
+        st.warning("No data found. Please add at least one row.")
+        return False
 
     for idx, row in df.iterrows():
         for col in required_cols:
             value = row[col]
-
             if pd.isna(value):
                 st.warning(f"Row {idx + 1}: '{col}' is required.")
                 return False
-
             if isinstance(value, str) and value.strip() == "":
                 st.warning(f"Row {idx + 1}: '{col}' cannot be empty.")
                 return False
 
-        # Validate louver_direction against orientation
-        if "louver_direction" in df.columns and "orientation" in df.columns:
-            louver      = str(row["louver_direction"]).strip()
-            orientation = str(row["orientation"]).strip()
-
-        if orientation == "Horizontal":
-            if louver not in HORIZONTAL_LOUVER:
-                st.warning(
-                    f"Row {idx + 1}: Louver direction '{louver}' is not valid for Horizontal orientation. "
-                    f"Valid options: {', '.join(HORIZONTAL_LOUVER)}"
-                )
-                return False
-        else:
-            if louver not in VERTICAL_LOUVER:
-                st.warning(
-                    f"Row {idx + 1}: Louver direction '{louver}' is not valid for Vertical orientation. "
-                    f"Valid options: {', '.join(VERTICAL_LOUVER)}"
-                )
+        if extra_validator:
+            result = extra_validator(row, idx)
+            if result is not True:
                 return False
 
     return True

@@ -1,19 +1,21 @@
-from datetime import date
+import io
+import pandas as pd
+import streamlit as st
+import copy
+import subprocess
+import os
 from io import BytesIO
+from datetime import date
+from openpyxl import Workbook, load_workbook
+from pypdf import PdfWriter, PdfReader
 
 import openpyxl
-import pandas as pd
 from openpyxl.worksheet.page import PageMargins
 from openpyxl.worksheet.datavalidation import DataValidation
 from openpyxl.drawing.image import Image as XLImage
 
-import copy
-import subprocess
-import os
-from openpyxl import load_workbook
-from pypdf import PdfWriter, PdfReader
-
-import streamlit as st
+from modules.profile_calculators.grille import GrilleCalculator
+from modules.profile_calculators.rectangular import RectangularCalculator
 
 from modules.excel_utils import (
     BEAMC_PROFILE_COLUMNS,
@@ -41,6 +43,7 @@ from modules.excel_utils import (
     value,
     fill_offer_data
 )
+from main import CALCULATOR_MAPPING
 
 
 # def generate_profile_xl(start, profile_xl, results):
@@ -366,69 +369,54 @@ def generate_inventory_xl(inv_xl, inv_data):
 
 
 def generate_installer_xl(inst_xl, area_data, common_vars):
+    import zipfile
 
-    def sc(cell_ref, value, bold=False, alignment="center", size=10):
-        set_cell("installer", ws[cell_ref], value, bold=bold, alignment=alignment, size=size)
-
-    tmp_dir = "/tmp/installer_pages"
-    os.makedirs(tmp_dir, exist_ok=True)
-    pdf_paths = []
+    output_xls = []
 
     for idx, row in area_data.iterrows():
+        if isinstance(inst_xl, BytesIO):
+            inst_xl.seek(0)
         wb = load_workbook(inst_xl)
         ws = wb.active
+
+        def sc(cell_ref, value, bold=False, alignment="center", size=10):
+            set_cell("installer", ws[cell_ref], value, bold=bold, alignment=alignment, size=size)
 
         s_no      = row.get("s_no", idx + 1)
         area_name = row.get("area_name", "")
 
         sc("A6",  common_vars.get("project_title", ""), bold=True)
         sc("A8",  f"Window {s_no} | {area_name}", bold=True)
-
         sc("E15", common_vars.get("product", ""))
 
-        img = generate_window_image(row, common_vars)
-
+        product_config = CALCULATOR_MAPPING[
+            common_vars['product']
+        ].generate_image(row, common_vars)
+        print(f"product_config: {product_config}")
+        img    = generate_window_image(row, common_vars, product_config)
         xl_img = XLImage(img)
         xl_img.width  = 570
         xl_img.height = 550
         xl_img.anchor = "A21"
         ws.add_image(xl_img)
 
-        sc("A61",  common_vars.get("project_title", ""), bold=True)
-        sc("A63",  f"Window {s_no} | {area_name}", bold=True)
+        sc("A61", common_vars.get("project_title", ""), bold=True)
+        sc("A63", f"Window {s_no} | {area_name}", bold=True)
         fill_cut_plan(ws, row["cut_plan"])
 
-        xlsx_path = os.path.join(tmp_dir, f"window_{idx}.xlsx")
-        ws.page_setup.paperSize   = 10
-        wb.save(xlsx_path)
+        xl_buf = BytesIO()
+        wb.save(xl_buf)
 
-        lo_bin = get_libreoffice_path()
-        subprocess.run(
-            [lo_bin, "--headless", "--norestore",
-            "--convert-to", "pdf",
-            "--outdir", tmp_dir, xlsx_path],
-            check=True, capture_output=True,
-            env={**os.environ, "HOME": "/tmp"}
-        )
+        file_name = f"({idx+1}) Window {s_no} | {area_name}.xlsx"
+        output_xls.append((file_name, xl_buf))
 
-        pdf_path = os.path.join(tmp_dir, f"window_{idx}.pdf")
-        if os.path.exists(pdf_path):
-            pdf_paths.append(pdf_path)
+    zip_buffer = BytesIO()
+    with zipfile.ZipFile(zip_buffer, "a", zipfile.ZIP_DEFLATED, False) as zip_file:
+        for file_name, xl_buf in output_xls:
+            zip_file.writestr(file_name, xl_buf.getvalue())
+    zip_buffer.seek(0)
 
-    writer = PdfWriter()
-    for pdf_path in pdf_paths:
-        for page in PdfReader(pdf_path).pages:
-            writer.add_page(page)
-
-    output_pdf = os.path.join(tmp_dir, "installer_all_windows.pdf")
-    with open(output_pdf, "wb") as f:
-        writer.write(f)
-
-    inst_output = BytesIO()
-    with open(output_pdf, "rb") as f:
-        inst_output.write(f.read())
-    inst_output.seek(0)
-    return inst_output
+    return zip_buffer
 
 
 def convert(product, results, common_vars):
@@ -476,23 +464,23 @@ def convert(product, results, common_vars):
     # inst_xl = inst_wb.worksheets[0]
     inst_output = generate_installer_xl(inst_template, area_data, common_vars)
 
-    # if product in ["Aerofoil", "S-Louvers", "Rectangular Louvers", "Cottal"]:
-    #     ext = ""
-    #     if product == "Aerofoil":
-    #         ext = results["Aerofoil Type"].iloc[0]
-    #     elif product in ["S-Louvers", "Rectangular Louvers", "Cottal"]:
-    #         ext = results["Louver Size"].iloc[0]
+    if product in ["Aerofoil", "S-Louvers", "Rectangular Louvers", "Cottal"]:
+        ext = ""
+        # if product == "Aerofoil":
+        #     ext = results["Aerofoil Type"].iloc[0]
+        if product in ["S-Louvers", "Rectangular Louvers", "Cottal"]:
+            ext = common_vars['louver_size']
 
-    #     xls = {
-    #         profile_xl: (f"Profile Calculation - {product} {ext}", 3),
-    #         carrier_xl: (f"Accessories - {product} {ext}", 1),
-    #         offer_xl: (f"{product} {ext}", 3),
-    #         inventory_xl: (f"Inventory Sheet - {product} {ext}", 3),
-    #     }
+        xls = {
+            # profile_xl: (f"Profile Calculation - {product} {ext}", 3),
+            # carrier_xl: (f"Accessories - {product} {ext}", 1),
+            offer_xl: ("offer", f"{product} {ext}", 3),
+            inventory_xl: ("inventory", f"Inventory Sheet - {product} {ext}", 3),
+        }
 
-    #     for xl in xls:
-    #         title = xl.cell(row=1, column=xls[xl][1])
-    #         set_cell(title, xls[xl][0], bold=True, size=14)
+        for xl in xls:
+            title = xl.cell(row=1, column=xls[xl][2])
+            set_cell(xls[xl][0], title, xls[xl][1], bold=True, size=14)
 
     # profile_output = BytesIO()
     # wb.save(profile_output)

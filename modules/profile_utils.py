@@ -112,6 +112,7 @@ def find_combinations(target, lengths, counts, req_pieces):
 
 
 def calculate_carrier_distances(length_combination):
+
     centre_gaps_per_piece = []
     no_carriers_per_piece = []
 
@@ -282,7 +283,6 @@ def build_req_plan(row):
     Returns:
         dict: {length: total_pieces_required}
     """
-
     cut_summary = row["cut_summary"]
     divisions = row["divisions"]
     qty_areas = row["qty_areas"]

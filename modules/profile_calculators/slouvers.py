@@ -1,4 +1,5 @@
 import math
+import streamlit as st
 
 import pandas as pd
 
@@ -12,120 +13,306 @@ S_LOUVER_PRODUCTS = {
 }
 
 
-class SLouverCalculator:
+def generate_offer_df(data):
 
-    def __init__(self, vars):
-        self.project_title = vars["project_title"]
-        self.window_title = vars["window_title"]
-        self.s_no = vars["s_no"]
-        self.qty_windows = vars["qty_windows"]
-        self.orientation = vars["orientation"]
-        self.width = vars["width"]
-        self.height = vars["height"]
-        self.pitch = vars["pitch"]
-        self.window = vars["window"]
-        self.louver_size = vars["louver_size"]
-        self.divisions = profile_utils.calculate_divisions(self.height, self.pitch)
+    offer_df_cols = {
+        "s_no": {
+            "type": "desc",
+            "hide_if_zero": False,
+        },
+        "area_name": {
+            "type": "desc",
+            "hide_if_zero": False,
+        },
+        "orientation": {
+            "type": "desc",
+            "hide_if_zero": False,
+        },
+        "height": {
+            "type": "desc",
+            "hide_if_zero": False,
+        },
+        "width": {
+            "type": "desc",
+            "hide_if_zero": False,
+        },
+        "qty_areas": {
+            "type": "desc",
+            "hide_if_zero": False,
+        },
+        "area_sqft": {
+            "type": "formula",
+            "hide_if_zero": False,
+        },
+        "divisions": {
+            "type": "formula",
+            "hide_if_zero": False,
+        },
+        "total_product_length": {
+            "type": "formula",
+            "hide_if_zero": False,
+        },
+    }
+    offer_df = data[offer_df_cols.keys()].copy()
 
-    def run(self):
-        vars, success = profile_utils.run(
-            self.width, self.height, self.divisions, self.window, self.qty_windows
-        )
+    return offer_df_cols, offer_df
 
-        total_product_length = vars["total_product_length"]
-        total_carrier_length = vars["total_carrier_length"]
-        total_carrier_divisions = vars["total_carrier_divisions"]
-        num_carrier_pieces = math.ceil(total_carrier_length / 133.7)
-        self_drill_screws = int(
-            math.ceil(
-                (self.divisions * total_carrier_divisions) + (num_carrier_pieces * 2)
-            )
-        )
-        used_table = vars["used_table"]
-        waste_table = vars["waste_table"]
+
+def generate_inventory_df(self, data, stock_plan):
+
+    all_inventory_rows = []
+
+    for _, row in data.iterrows():
+
+        sequence = 0
 
         profile_rows = []
         l_angle_rows = []
-        for item in used_table:
-            profile_rows.append(
-                {
-                    "Product Code": S_LOUVER_PRODUCTS["PROFILE"][0],
-                    "Product Name": S_LOUVER_PRODUCTS["PROFILE"][1],
-                    "Length": item,
-                    "Quantity": used_table[item],
-                    "UOM": "m",
-                }
-            )
+        for item in stock_plan:
+            profile_rows.append({
+                "Product Code": S_LOUVER_PRODUCTS["PROFILE"][0],
+                "Product Name": S_LOUVER_PRODUCTS["PROFILE"][1],
+                "Length": item["length"],
+                "Quantity": item["qty"],
+                "UOM": "m",
+            })
 
-            l_angle_rows.append(
-                {
-                    "Product Code": COMMON_ACCESSORIES["L_ANGLE_19X19"][0],
-                    "Product Name": COMMON_ACCESSORIES["L_ANGLE_19X19"][1],
-                    "Length": 3050,
-                    "Quantity": int(math.ceil(item / 3050)),
-                    "UOM": "m",
-                }
-            )
+            l_angle_rows.append({
+                "Product Code": COMMON_ACCESSORIES["L_ANGLE_19X19"][0],
+                "Product Name": COMMON_ACCESSORIES["L_ANGLE_19X19"][1],
+                "Length": 3050,
+                "Quantity": int(math.ceil(item["length"] / 3050)),
+                "UOM": "m",
+            })
 
         additional_items = [
             {
                 "Product Code": S_LOUVER_PRODUCTS["CARRIER"][0],
                 "Product Name": S_LOUVER_PRODUCTS["CARRIER"][1],
                 "Length": 3050,
-                "Quantity": int(math.ceil((num_carrier_pieces * 55) / 3050)),
+                "Quantity": int(math.ceil((row["num_carrier_pieces"] * 55) / 3050)),
                 "UOM": "m",
             },
             {
                 "Product Code": COMMON_ACCESSORIES["SELF_DRILLING_19MM"][0],
                 "Product Name": COMMON_ACCESSORIES["SELF_DRILLING_19MM"][1],
-                "Quantity": self_drill_screws,
+                "Quantity": row["self_drill_screws"],
+                "UOM": "pcs",
+            },
+            {
+                "Product Code": COMMON_ACCESSORIES["RIVET_6MM"][0],
+                "Product Name": COMMON_ACCESSORIES["RIVET_6MM"][1],
+                "Quantity": row["self_drill_screws"],
+                "UOM": "pcs",
+            },
+            {
+                "Product Code": COMMON_ACCESSORIES["PAINT"][0],
+                "Product Name": COMMON_ACCESSORIES["PAINT"][1],
+                "Quantity": round(row['divisions'] / 50 * 2) / 2,
+                "UOM": "l",
+            },
+            {
+                "Product Code": COMMON_ACCESSORIES["PAINT_BRUSH"][0],
+                "Product Name": COMMON_ACCESSORIES["PAINT_BRUSH"][1],
+                "Quantity": math.ceil(round(row['divisions'] / 50 * 2) / 2),
                 "UOM": "pcs",
             },
         ]
 
-        all_rows = []
-        for block in [
-            profile_rows,
-            l_angle_rows,
-            additional_items,
-        ]:
-            all_rows.extend(block)
+        row_items = profile_rows + l_angle_rows + additional_items
 
-        inventory_out = (
-            pd.DataFrame(all_rows)
-            .reindex(columns=INV_COLUMNS)
-            .fillna("")
+        for item in row_items:
+            item["Quantity"] = int(item["Quantity"] * row["qty_areas"])
+            item["item_order"] = sequence
+            sequence += 1
+
+        all_inventory_rows.extend(row_items)
+
+    inv_data = (
+        pd.DataFrame(all_inventory_rows)
+        .reindex(columns=INV_COLUMNS + ["item_order"])
+        .fillna("")
+    )
+
+    inv_data = (
+        inv_data.groupby(
+            [
+                "Product Code",
+                "Product Name",
+                "Length",
+                "UOM",
+                "Colour",
+                "Finish",
+                "CNC Hole Distance",
+                "Remarks"
+            ],
+            as_index=False,
+            sort=False
         )
-        inventory_out["Quantity"] = inventory_out["Quantity"] * self.qty_windows
+        .agg({
+            "Quantity": "sum",
+            "item_order": "min"
+        })
+        .sort_values(["item_order"])
+        .drop(columns=["item_order"])
+    )
 
-        results = pd.DataFrame(
-            {
-                "Project Title": [self.project_title],
-                "Window": [self.window + 1],
-                "Area Name": [self.window_title],
-                "S. No": [self.s_no],
-                "Width (mm)": [
-                    self.width if self.orientation == "Horizontal" else self.height
-                ],
-                "Height (mm)": [
-                    self.height if self.orientation == "Horizontal" else self.width
-                ],
-                "Orientation": [self.orientation],
-                "Area (ft2)": [round(((self.width * self.height) / (304.8**2)), 2)],
-                "Area Qty (nos)": [self.qty_windows],
-                "No. of Pieces": [self.divisions],
-                "Pitch (mm)": [self.pitch],
-                "Louver Size": [self.louver_size],
-                "Product Divisions": [self.divisions],
-                "Total Product Length (m)": [total_product_length],
-                "Total Carrier Divisions": [total_carrier_divisions],
-                "Total Carrier Length (m)": [total_carrier_length / 1000],
-                "133.7 mm Carrier Pieces (nos)": [num_carrier_pieces],
-                "Self-Drilling 3/4 Inch Screws (pcs)": [self_drill_screws],
-                "Rivet": [self.divisions * total_carrier_divisions],
-                "Used Table": [used_table],
-                "Waste Table": [waste_table],
-            }
+    return inv_data
+
+
+class SLouverCalculator:
+
+    def __init__(self, vars):
+        self.project_title = vars["project_title"]
+        self.louver_size = vars["louver_size"]
+        self.pitch = vars["pitch"]
+        self.areas = vars["areas"]
+
+
+    def get_data_input():
+
+        empty_df = pd.DataFrame({
+            "s_no": pd.Series(dtype="str"),
+            "area_name": pd.Series(dtype="str"),
+            "height": pd.Series(dtype="int"),
+            "width": pd.Series(dtype="int"),
+            "orientation": pd.Series(dtype="str"),
+            "qty_areas": pd.Series(dtype="int"),
+            "cut_summary": pd.Series(dtype="str"),
+        })
+
+        required_cols = [
+            "width",
+            "height",
+            "orientation",
+            "qty_areas",
+            "cut_summary",
+        ]
+
+        input_data = st.data_editor(
+            data=empty_df,
+            column_config={
+                "s_no": st.column_config.TextColumn(
+                    "S. No",
+                    required=False
+                ),
+
+                "area_name": st.column_config.TextColumn(
+                    "Area Name",
+                    required=False
+                ),
+
+                "width": st.column_config.NumberColumn(
+                    "Width (mm)",
+                    min_value=1,
+                    step=1,
+                    required=True
+                ),
+
+                "height": st.column_config.NumberColumn(
+                    "Height (mm)",
+                    min_value=1,
+                    step=1,
+                    required=True
+                ),
+
+                "orientation": st.column_config.SelectboxColumn(
+                    "Orientation",
+                    options=["Horizontal", "Vertical"],
+                    required=True
+                ),
+
+                "qty_areas": st.column_config.NumberColumn(
+                    "Similar Areas",
+                    min_value=1,
+                    step=1,
+                    required=True
+                ),
+
+                "cut_summary": st.column_config.TextColumn(
+                    "Cut Summary",
+                    required=True
+                ),
+            },
+            num_rows="dynamic",
         )
 
-        return results, inventory_out, success
+        return input_data, required_cols
+    
+
+    def generate_image(row, common_vars):
+
+        divisions     = row["divisions"]
+        cut_summary   = row["cut_summary"]
+
+        if len(cut_summary) > 1:
+            cut_summary_str = "+".join(str(c) for c in cut_summary)
+        else:
+            cut_summary_str = f"Single Piece {cut_summary[0]} mm"
+
+        info_lines = [
+            (f"{divisions} Divisions", "#333", 12, True),
+            ("Breakdown",              "#333", 12, False),
+            (f"{cut_summary_str}",     "#333", 12, True),
+        ]
+
+        config = {
+            "show_carriers": True,
+            "show_endcaps":  False,
+            "show_joints":   True,
+            "bar_color":     "#888",
+            "info_lines":    info_lines,
+        }
+        return config
+
+
+    def run(self):
+
+        data = self.areas.copy()
+
+        # PROFILE
+        data["req_plan"] = data.apply(profile_utils.build_req_plan, axis=1)
+        master_req = profile_utils.combine_req_plan(data["req_plan"])
+        out = profile_utils.optimize_stock_v2(data)
+        data["cut_plan"] = data.apply(
+            lambda row: profile_utils.build_window_cut_plan(row, out["bars"]),
+            axis=1
+        )
+
+        # CARRIER
+        data["carrier_distances"] = data.apply(
+            lambda row: profile_utils.calculate_carrier_distances(row["cut_summary"]),
+            axis=1
+        )
+        data["total_carrier_divisions"] = data["carrier_distances"].apply(
+            lambda x: sum(len(sublist) for sublist in x)
+        )
+        data["total_carrier_length"] = data.apply(
+            lambda row: row["total_carrier_divisions"]*row["perpendicular_length"],
+            axis=1
+        )
+        data['num_carrier_pieces'] = data.apply(
+            lambda row: math.ceil(row['total_carrier_length'] / 133.7),
+            axis=1
+        )
+
+        # ACCS
+        data['self_drill_screws'] = data.apply(
+            lambda row: int(math.ceil(
+                (row['divisions'] * row['total_carrier_divisions']) + (row['num_carrier_pieces'] * 2)
+            )),
+            axis=1
+        )
+
+        offer_df_cols, offer_df = generate_offer_df(data)
+        inventory_df = generate_inventory_df(self, data, out["stock_plan"])
+
+        results = [
+            data,
+            offer_df_cols,
+            offer_df,
+            inventory_df
+        ]
+
+        return results
+
