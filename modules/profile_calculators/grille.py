@@ -26,14 +26,14 @@ def calculate_endcaps(row):
 
     endcap_opt = row["endcaps"]
     divisions = row["divisions"]
-    num_L, num_inverse_L = 0, 0 
+    num_L, num_inverse_L = 0, 0
 
     if endcap_opt in ["Single Side - L", "Both sides"]:
         num_L += divisions
-    
+
     if endcap_opt in ["Single Side - Inverse L", "Both sides"]:
         num_inverse_L += divisions
-    
+
     return num_L, num_inverse_L
 
 
@@ -130,28 +130,34 @@ def generate_inventory_df(data, pitch, stock_plan):
         conditional_items = []
 
         if row["num_L"] > 0:
-            conditional_items.append({
-                "Product Code": GRILLE_PRODUCTS["L_ENDCAP"][0],
-                "Product Name": GRILLE_PRODUCTS["L_ENDCAP"][1],
-                "Quantity": row["num_L"],
-                "UOM": "pcs",
-            })
+            conditional_items.append(
+                {
+                    "Product Code": GRILLE_PRODUCTS["L_ENDCAP"][0],
+                    "Product Name": GRILLE_PRODUCTS["L_ENDCAP"][1],
+                    "Quantity": row["num_L"],
+                    "UOM": "pcs",
+                }
+            )
 
         if row["num_inverse_L"] > 0:
-            conditional_items.append({
-                "Product Code": GRILLE_PRODUCTS["INVERSE_L_ENDCAP"][0],
-                "Product Name": GRILLE_PRODUCTS["INVERSE_L_ENDCAP"][1],
-                "Quantity": row["num_inverse_L"],
-                "UOM": "pcs",
-            })
+            conditional_items.append(
+                {
+                    "Product Code": GRILLE_PRODUCTS["INVERSE_L_ENDCAP"][0],
+                    "Product Name": GRILLE_PRODUCTS["INVERSE_L_ENDCAP"][1],
+                    "Quantity": row["num_inverse_L"],
+                    "UOM": "pcs",
+                }
+            )
 
         if row["joining_pieces"] > 0:
-            conditional_items.append({
-                "Product Code": GRILLE_PRODUCTS["JOINING_PIECES"][0],
-                "Product Name": GRILLE_PRODUCTS["JOINING_PIECES"][1],
-                "Quantity": row["joining_pieces"],
-                "UOM": "pcs",
-            })
+            conditional_items.append(
+                {
+                    "Product Code": GRILLE_PRODUCTS["JOINING_PIECES"][0],
+                    "Product Name": GRILLE_PRODUCTS["JOINING_PIECES"][1],
+                    "Quantity": row["joining_pieces"],
+                    "UOM": "pcs",
+                }
+            )
 
         accs = [
             {
@@ -187,12 +193,7 @@ def generate_inventory_df(data, pitch, stock_plan):
         ]
 
         # combine everything
-        row_items = (
-            profile_rows
-            + additional_items
-            + conditional_items
-            + accs
-        )
+        row_items = profile_rows + additional_items + conditional_items + accs
 
         # multiply by qty_areas BEFORE appending
         for item in row_items:
@@ -218,15 +219,12 @@ def generate_inventory_df(data, pitch, stock_plan):
                 "Colour",
                 "Finish",
                 "CNC Hole Distance",
-                "Remarks"
+                "Remarks",
             ],
             as_index=False,
-            sort=False
+            sort=False,
         )
-        .agg({
-            "Quantity": "sum",\
-            "item_order": "min"
-        })
+        .agg({"Quantity": "sum", "item_order": "min"})
         .sort_values(["item_order"])
         .drop(columns=["item_order"])
     )
@@ -240,40 +238,44 @@ class GrilleCalculator:
         self.pitch = vars["pitch"]
         self.areas = vars["areas"]
 
-
     def validate_input(row, idx):
 
-        VERTICAL_LOUVER   = {"Top L", "Top Inverse L"}
+        VERTICAL_LOUVER = {"Top L", "Top Inverse L"}
         HORIZONTAL_LOUVER = {"Right L"}
 
-        louver      = str(row["louver_direction"]).strip()
+        louver = str(row["louver_direction"]).strip()
         orientation = str(row["orientation"]).strip()
 
         if orientation == "Horizontal":
             if louver not in HORIZONTAL_LOUVER:
-                st.warning(f"Row {idx + 1}: Louver direction '{louver}' not valid for Horizontal.")
+                st.warning(
+                    f"Row {idx + 1}: Louver direction '{louver}' not valid for Horizontal."
+                )
                 return False
         else:
             if louver not in VERTICAL_LOUVER:
-                st.warning(f"Row {idx + 1}: Louver direction '{louver}' not valid for Vertical.")
+                st.warning(
+                    f"Row {idx + 1}: Louver direction '{louver}' not valid for Vertical."
+                )
                 return False
 
         return True
 
-
     def get_data_input():
 
-        empty_df = pd.DataFrame({
-            "s_no": pd.Series(dtype="str"),
-            "area_name": pd.Series(dtype="str"),
-            "height": pd.Series(dtype="int"),
-            "width": pd.Series(dtype="int"),
-            "orientation": pd.Series(dtype="str"),
-            "louver_direction": pd.Series(dtype="str"),
-            "endcaps": pd.Series(dtype="str"),
-            "qty_areas": pd.Series(dtype="int"),
-            "cut_summary": pd.Series(dtype="str"),
-        })
+        empty_df = pd.DataFrame(
+            {
+                "s_no": pd.Series(dtype="str"),
+                "area_name": pd.Series(dtype="str"),
+                "height": pd.Series(dtype="int"),
+                "width": pd.Series(dtype="int"),
+                "orientation": pd.Series(dtype="str"),
+                "louver_direction": pd.Series(dtype="str"),
+                "endcaps": pd.Series(dtype="str"),
+                "qty_areas": pd.Series(dtype="int"),
+                "cut_summary": pd.Series(dtype="str"),
+            }
+        )
 
         required_cols = [
             "width",
@@ -288,65 +290,33 @@ class GrilleCalculator:
         input_data = st.data_editor(
             data=empty_df,
             column_config={
-                "s_no": st.column_config.TextColumn(
-                    "S. No",
-                    required=False
-                ),
-
-                "area_name": st.column_config.TextColumn(
-                    "Area Name",
-                    required=False
-                ),
-
+                "s_no": st.column_config.TextColumn("S. No", required=False),
+                "area_name": st.column_config.TextColumn("Area Name", required=False),
                 "width": st.column_config.NumberColumn(
-                    "Width (mm)",
-                    min_value=1,
-                    step=1,
-                    required=True
+                    "Width (mm)", min_value=1, step=1, required=True
                 ),
-
                 "height": st.column_config.NumberColumn(
-                    "Height (mm)",
-                    min_value=1,
-                    step=1,
-                    required=True
+                    "Height (mm)", min_value=1, step=1, required=True
                 ),
-
                 "pitch": st.column_config.NumberColumn(
-                    "Pitch (mm)",
-                    min_value=1,
-                    step=1,
-                    required=True
+                    "Pitch (mm)", min_value=1, step=1, required=True
                 ),
-
                 "orientation": st.column_config.SelectboxColumn(
-                    "Orientation",
-                    options=["Horizontal", "Vertical"],
-                    required=True
+                    "Orientation", options=["Horizontal", "Vertical"], required=True
                 ),
-
                 "louver_direction": st.column_config.SelectboxColumn(
                     "Grille Direction",
                     options=["Top L", "Top Inverse L", "Right L"],
-                    required=True
+                    required=True,
                 ),
-
                 "endcaps": st.column_config.SelectboxColumn(
-                    "Endcaps",
-                    options=ENDCAP_OPTIONS,
-                    required=True
+                    "Endcaps", options=ENDCAP_OPTIONS, required=True
                 ),
-
                 "qty_areas": st.column_config.NumberColumn(
-                    "Similar Areas",
-                    min_value=1,
-                    step=1,
-                    required=True
+                    "Similar Areas", min_value=1, step=1, required=True
                 ),
-
                 "cut_summary": st.column_config.TextColumn(
-                    "Cut Summary",
-                    required=True
+                    "Cut Summary", required=True
                 ),
             },
             num_rows="dynamic",
@@ -354,92 +324,87 @@ class GrilleCalculator:
 
         return input_data, required_cols
 
+    # def print_stuff(out, master_req):
 
-    def print_stuff(out, master_req):
+    #     from collections import Counter
 
-        from collections import Counter
-        # Check raw ILP output BEFORE trimming
-        print("Total bars:", len(out["bars"]))
+    #     # Check raw ILP output BEFORE trimming
+    #     print("Total bars:", len(out["bars"]))
 
-        piece_totals_raw = Counter()
-        for bar in out["bars"]:
-            for cut in bar["cuts"]:
-                piece_totals_raw[cut] += 1
+    #     piece_totals_raw = Counter()
+    #     for bar in out["bars"]:
+    #         for cut in bar["cuts"]:
+    #             piece_totals_raw[cut] += 1
 
-        print("Raw pieces from ILP:")
-        for length, qty in sorted(piece_totals_raw.items(), reverse=True):
-            required = int(master_req.get(length, master_req.get(float(length), 0)))
-            print(f"  {length}mm → {qty} pcs (required: {required})")
-        
-        print("\n===== CUT PLAN =====")
-        groups = Counter()
-        pattern_lookup = {}
-        for bar in out["bars"]:
-            key = (bar["stock_length"], tuple(sorted(bar["cuts"])))
-            groups[key] += 1
-            pattern_lookup[key] = bar
+    #     print("Raw pieces from ILP:")
+    #     for length, qty in sorted(piece_totals_raw.items(), reverse=True):
+    #         required = int(master_req.get(length, master_req.get(float(length), 0)))
+    #         print(f"  {length}mm → {qty} pcs (required: {required})")
 
-        for (stock, cuts), qty in sorted(groups.items(), key=lambda x: -x[1]):
-            bar = pattern_lookup[(stock, cuts)]
-            print(f"  {qty:>4}x  {stock}mm  →  cuts: {list(cuts)}  |  waste/bar: {bar['waste']}mm  |  total waste: {bar['waste']*qty}mm")
+    #     print("\n===== CUT PLAN =====")
+    #     groups = Counter()
+    #     pattern_lookup = {}
+    #     for bar in out["bars"]:
+    #         key = (bar["stock_length"], tuple(sorted(bar["cuts"])))
+    #         groups[key] += 1
+    #         pattern_lookup[key] = bar
 
-        # Piece tally
-        piece_totals = Counter()
-        for bar in out["bars"]:
-            for cut in bar["cuts"]:
-                piece_totals[cut] += 1
+    #     for (stock, cuts), qty in sorted(groups.items(), key=lambda x: -x[1]):
+    #         bar = pattern_lookup[(stock, cuts)]
+    #         print(
+    #             f"  {qty:>4}x  {stock}mm  →  cuts: {list(cuts)}  |  waste/bar: {bar['waste']}mm  |  total waste: {bar['waste']*qty}mm"
+    #         )
 
-        s = out["summary"]
-        print("\n===== SUMMARY =====")
-        print(f"Total bars used : {s['total_bars']}")
-        print(f"Bar breakdown   : {s['bar_breakdown']}")
-        print(f"Total waste     : {s['total_waste_mm']} mm")
-        print(f"Kerf loss       : {s['total_kerf_loss_mm']} mm")
-        print(f"Efficiency      : {s['efficiency_pct']} %")
+    #     # Piece tally
+    #     piece_totals = Counter()
+    #     for bar in out["bars"]:
+    #         for cut in bar["cuts"]:
+    #             piece_totals[cut] += 1
 
-        print("\n===== PIECES CUT =====")
-        for length, qty in sorted(piece_totals.items(), reverse=True):
-            required = int(master_req.get(length, master_req.get(float(length), 0)))
-            diff = qty - required
-            if diff == 0:
-                status = "✓"
-            elif diff > 0:
-                status = f"↑ {diff} extra"
-            else:
-                status = f"↓ {abs(diff)} short"
-            print(f"  {length}mm  →  {qty} pcs  (required: {required})  {status}")
-        
-        
-        print(master_req)
+    #     s = out["summary"]
+    #     print("\n===== SUMMARY =====")
+    #     print(f"Total bars used : {s['total_bars']}")
+    #     print(f"Bar breakdown   : {s['bar_breakdown']}")
+    #     print(f"Total waste     : {s['total_waste_mm']} mm")
+    #     print(f"Kerf loss       : {s['total_kerf_loss_mm']} mm")
+    #     print(f"Efficiency      : {s['efficiency_pct']} %")
 
-        s = out["summary"]
-        waste_pct = round(s['total_waste_mm'] / s['total_material_mm'] * 100, 2)
-        kerf_pct  = round(s['total_kerf_loss_mm'] / s['total_material_mm'] * 100, 2)
-        used_pct  = round(100 - waste_pct - kerf_pct, 2)
+    #     print("\n===== PIECES CUT =====")
+    #     for length, qty in sorted(piece_totals.items(), reverse=True):
+    #         required = int(master_req.get(length, master_req.get(float(length), 0)))
+    #         diff = qty - required
+    #         if diff == 0:
+    #             status = "✓"
+    #         elif diff > 0:
+    #             status = f"↑ {diff} extra"
+    #         else:
+    #             status = f"↓ {abs(diff)} short"
+    #         print(f"  {length}mm  →  {qty} pcs  (required: {required})  {status}")
 
-        print("\n===== MATERIAL BREAKDOWN =====")
-        print(f"  Useful cuts : {used_pct} %")
-        print(f"  Kerf loss   : {kerf_pct} %")
-        print(f"  Waste       : {waste_pct} %")
+    #     print(master_req)
 
-        st.badge(
-            f'Cut plan generated with {used_pct}% efficiency',
-            color="green"
-        )
+    #     s = out["summary"]
+    #     waste_pct = round(s["total_waste_mm"] / s["total_material_mm"] * 100, 2)
+    #     kerf_pct = round(s["total_kerf_loss_mm"] / s["total_material_mm"] * 100, 2)
+    #     used_pct = round(100 - waste_pct - kerf_pct, 2)
 
+    #     print("\n===== MATERIAL BREAKDOWN =====")
+    #     print(f"  Useful cuts : {used_pct} %")
+    #     print(f"  Kerf loss   : {kerf_pct} %")
+    #     print(f"  Waste       : {waste_pct} %")
+
+    #     st.badge(f"Cut plan generated with {used_pct}% efficiency", color="green")
 
     def generate_image(row, common_vars):
 
-        print('hi!!!!!!!!!!!!!!!!!!!!!!')
-
-        pitch         = common_vars["pitch"]
-        divisions     = row["divisions"]
-        cut_summary   = row["cut_summary"]
-        louver        = str(row["louver_direction"]).strip()
+        pitch = common_vars["pitch"]
+        divisions = row["divisions"]
+        cut_summary = row["cut_summary"]
+        louver = str(row["louver_direction"]).strip()
         endcap_choice = str(row["endcaps"]).strip()
-        num_L         = row["num_L"]
+        num_L = row["num_L"]
         num_inverse_L = row["num_inverse_L"]
-        orient        = row["orientation"]
+        orient = row["orientation"]
 
         if len(cut_summary) > 1:
             cut_summary_str = "+".join(str(c) for c in cut_summary)
@@ -448,12 +413,12 @@ class GrilleCalculator:
 
         info_lines = [
             (f"{divisions} Divisions", "#333", 12, True),
-            (f"@ {pitch} mm Pitch",    "#333", 12, True),
-            ("",                       "#333", 12, True),
-            ("Breakdown",              "#333", 12, False),
-            (f"{cut_summary_str}",     "#333", 12, True),
-            ("Grille Direction",       "#333", 12, False),
-            (f"{louver}",              "#333", 12, True),
+            (f"@ {pitch} mm Pitch", "#333", 12, True),
+            ("", "#333", 12, True),
+            ("Breakdown", "#333", 12, False),
+            (f"{cut_summary_str}", "#333", 12, True),
+            ("Grille Direction", "#333", 12, False),
+            (f"{louver}", "#333", 12, True),
         ]
 
         # Compute endcap sides
@@ -461,28 +426,47 @@ class GrilleCalculator:
 
         if orient == "Vertical":
             if louver == "Top L":
-                draw_top    = endcap_choice in ("Both sides", "Single Side - L")         and num_L > 0
-                draw_bottom = endcap_choice in ("Both sides", "Single Side - Inverse L") and num_inverse_L > 0
+                draw_top = (
+                    endcap_choice in ("Both sides", "Single Side - L") and num_L > 0
+                )
+                draw_bottom = (
+                    endcap_choice in ("Both sides", "Single Side - Inverse L")
+                    and num_inverse_L > 0
+                )
             elif louver == "Top Inverse L":
-                draw_top    = endcap_choice in ("Both sides", "Single Side - Inverse L") and num_inverse_L > 0
-                draw_bottom = endcap_choice in ("Both sides", "Single Side - L")         and num_L > 0
+                draw_top = (
+                    endcap_choice in ("Both sides", "Single Side - Inverse L")
+                    and num_inverse_L > 0
+                )
+                draw_bottom = (
+                    endcap_choice in ("Both sides", "Single Side - L") and num_L > 0
+                )
         else:
             if louver == "Right L":
-                draw_right = endcap_choice in ("Both sides", "Single Side - L")         and num_L > 0
-                draw_left  = endcap_choice in ("Both sides", "Single Side - Inverse L") and num_inverse_L > 0
+                draw_right = (
+                    endcap_choice in ("Both sides", "Single Side - L") and num_L > 0
+                )
+                draw_left = (
+                    endcap_choice in ("Both sides", "Single Side - Inverse L")
+                    and num_inverse_L > 0
+                )
 
-        endcap_sides = {"top": draw_top, "bottom": draw_bottom, "left": draw_left, "right": draw_right}
+        endcap_sides = {
+            "top": draw_top,
+            "bottom": draw_bottom,
+            "left": draw_left,
+            "right": draw_right,
+        }
 
         config = {
             "show_carriers": True,
-            "show_endcaps":  True,
-            "show_joints":   True,
-            "bar_color":     "#888",
-            "info_lines":    info_lines,
-            "endcap_sides":  endcap_sides,
+            "show_endcaps": True,
+            "show_joints": True,
+            "bar_color": "#888",
+            "info_lines": info_lines,
+            "endcap_sides": endcap_sides,
         }
         return config
-
 
     def run(self):
 
@@ -490,48 +474,43 @@ class GrilleCalculator:
 
         # PROFILE
         data["req_plan"] = data.apply(profile_utils.build_req_plan, axis=1)
-        master_req = profile_utils.combine_req_plan(data["req_plan"])
+        # master_req = profile_utils.combine_req_plan(data["req_plan"])
         out = profile_utils.optimize_stock_v2(data)
         data["cut_plan"] = data.apply(
-            lambda row: profile_utils.build_window_cut_plan(row, out["bars"]),
-            axis=1
+            lambda row: profile_utils.build_window_cut_plan(row, out["bars"]), axis=1
         )
-        
+
         # CARRIER
         data["carrier_distances"] = data.apply(
             lambda row: profile_utils.calculate_carrier_distances(row["cut_summary"]),
-            axis=1
+            axis=1,
         )
         data["total_carrier_divisions"] = data["carrier_distances"].apply(
             lambda x: sum(len(sublist) for sublist in x)
         )
         data["total_carrier_length"] = data.apply(
-            lambda row: row["total_carrier_divisions"]*row["perpendicular_length"],
-            axis=1
+            lambda row: row["total_carrier_divisions"] * row["perpendicular_length"],
+            axis=1,
         )
 
         # ACCS
         data[["num_L", "num_inverse_L"]] = data.apply(
-            lambda r: pd.Series(calculate_endcaps(r)),
-            axis=1
+            lambda r: pd.Series(calculate_endcaps(r)), axis=1
         )
         data["endcap_cnt"] = data["num_L"] + data["num_inverse_L"]
         data[["nuts_bolts_cnt", "joining_pieces"]] = data.apply(
-            lambda r: pd.Series({
-                "nuts_bolts_cnt": r["divisions"] * r["total_carrier_divisions"],
-                "joining_pieces": (len(r["cut_summary"]) - 1) * r["divisions"]
-            }),
-            axis=1
+            lambda r: pd.Series(
+                {
+                    "nuts_bolts_cnt": r["divisions"] * r["total_carrier_divisions"],
+                    "joining_pieces": (len(r["cut_summary"]) - 1) * r["divisions"],
+                }
+            ),
+            axis=1,
         )
-        
+
         offer_df_cols, offer_df = generate_offer_df(data)
         inventory_df = generate_inventory_df(data, self.pitch, out["stock_plan"])
 
-        results = [
-            data,
-            offer_df_cols,
-            offer_df,
-            inventory_df
-        ]
+        results = [data, offer_df_cols, offer_df, inventory_df]
 
         return results

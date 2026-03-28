@@ -69,21 +69,25 @@ def generate_inventory_df(self, data, stock_plan):
         profile_rows = []
         l_angle_rows = []
         for item in stock_plan:
-            profile_rows.append({
-                "Product Code": S_LOUVER_PRODUCTS["PROFILE"][0],
-                "Product Name": S_LOUVER_PRODUCTS["PROFILE"][1],
-                "Length": item["length"],
-                "Quantity": item["qty"],
-                "UOM": "m",
-            })
+            profile_rows.append(
+                {
+                    "Product Code": S_LOUVER_PRODUCTS["PROFILE"][0],
+                    "Product Name": S_LOUVER_PRODUCTS["PROFILE"][1],
+                    "Length": item["length"],
+                    "Quantity": item["qty"],
+                    "UOM": "m",
+                }
+            )
 
-            l_angle_rows.append({
-                "Product Code": COMMON_ACCESSORIES["L_ANGLE_19X19"][0],
-                "Product Name": COMMON_ACCESSORIES["L_ANGLE_19X19"][1],
-                "Length": 3050,
-                "Quantity": int(math.ceil(item["length"] / 3050)),
-                "UOM": "m",
-            })
+            l_angle_rows.append(
+                {
+                    "Product Code": COMMON_ACCESSORIES["L_ANGLE_19X19"][0],
+                    "Product Name": COMMON_ACCESSORIES["L_ANGLE_19X19"][1],
+                    "Length": 3050,
+                    "Quantity": int(math.ceil(item["length"] / 3050)),
+                    "UOM": "m",
+                }
+            )
 
         additional_items = [
             {
@@ -108,13 +112,13 @@ def generate_inventory_df(self, data, stock_plan):
             {
                 "Product Code": COMMON_ACCESSORIES["PAINT"][0],
                 "Product Name": COMMON_ACCESSORIES["PAINT"][1],
-                "Quantity": round(row['divisions'] / 50 * 2) / 2,
+                "Quantity": round(row["divisions"] / 50 * 2) / 2,
                 "UOM": "l",
             },
             {
                 "Product Code": COMMON_ACCESSORIES["PAINT_BRUSH"][0],
                 "Product Name": COMMON_ACCESSORIES["PAINT_BRUSH"][1],
-                "Quantity": math.ceil(round(row['divisions'] / 50 * 2) / 2),
+                "Quantity": math.ceil(round(row["divisions"] / 50 * 2) / 2),
                 "UOM": "pcs",
             },
         ]
@@ -144,15 +148,12 @@ def generate_inventory_df(self, data, stock_plan):
                 "Colour",
                 "Finish",
                 "CNC Hole Distance",
-                "Remarks"
+                "Remarks",
             ],
             as_index=False,
-            sort=False
+            sort=False,
         )
-        .agg({
-            "Quantity": "sum",
-            "item_order": "min"
-        })
+        .agg({"Quantity": "sum", "item_order": "min"})
         .sort_values(["item_order"])
         .drop(columns=["item_order"])
     )
@@ -168,18 +169,19 @@ class SLouverCalculator:
         self.pitch = vars["pitch"]
         self.areas = vars["areas"]
 
-
     def get_data_input():
 
-        empty_df = pd.DataFrame({
-            "s_no": pd.Series(dtype="str"),
-            "area_name": pd.Series(dtype="str"),
-            "height": pd.Series(dtype="int"),
-            "width": pd.Series(dtype="int"),
-            "orientation": pd.Series(dtype="str"),
-            "qty_areas": pd.Series(dtype="int"),
-            "cut_summary": pd.Series(dtype="str"),
-        })
+        empty_df = pd.DataFrame(
+            {
+                "s_no": pd.Series(dtype="str"),
+                "area_name": pd.Series(dtype="str"),
+                "height": pd.Series(dtype="int"),
+                "width": pd.Series(dtype="int"),
+                "orientation": pd.Series(dtype="str"),
+                "qty_areas": pd.Series(dtype="int"),
+                "cut_summary": pd.Series(dtype="str"),
+            }
+        )
 
         required_cols = [
             "width",
@@ -192,58 +194,33 @@ class SLouverCalculator:
         input_data = st.data_editor(
             data=empty_df,
             column_config={
-                "s_no": st.column_config.TextColumn(
-                    "S. No",
-                    required=False
-                ),
-
-                "area_name": st.column_config.TextColumn(
-                    "Area Name",
-                    required=False
-                ),
-
+                "s_no": st.column_config.TextColumn("S. No", required=False),
+                "area_name": st.column_config.TextColumn("Area Name", required=False),
                 "width": st.column_config.NumberColumn(
-                    "Width (mm)",
-                    min_value=1,
-                    step=1,
-                    required=True
+                    "Width (mm)", min_value=1, step=1, required=True
                 ),
-
                 "height": st.column_config.NumberColumn(
-                    "Height (mm)",
-                    min_value=1,
-                    step=1,
-                    required=True
+                    "Height (mm)", min_value=1, step=1, required=True
                 ),
-
                 "orientation": st.column_config.SelectboxColumn(
-                    "Orientation",
-                    options=["Horizontal", "Vertical"],
-                    required=True
+                    "Orientation", options=["Horizontal", "Vertical"], required=True
                 ),
-
                 "qty_areas": st.column_config.NumberColumn(
-                    "Similar Areas",
-                    min_value=1,
-                    step=1,
-                    required=True
+                    "Similar Areas", min_value=1, step=1, required=True
                 ),
-
                 "cut_summary": st.column_config.TextColumn(
-                    "Cut Summary",
-                    required=True
+                    "Cut Summary", required=True
                 ),
             },
             num_rows="dynamic",
         )
 
         return input_data, required_cols
-    
 
     def generate_image(row, common_vars):
 
-        divisions     = row["divisions"]
-        cut_summary   = row["cut_summary"]
+        divisions = row["divisions"]
+        cut_summary = row["cut_summary"]
 
         if len(cut_summary) > 1:
             cut_summary_str = "+".join(str(c) for c in cut_summary)
@@ -252,19 +229,18 @@ class SLouverCalculator:
 
         info_lines = [
             (f"{divisions} Divisions", "#333", 12, True),
-            ("Breakdown",              "#333", 12, False),
-            (f"{cut_summary_str}",     "#333", 12, True),
+            ("Breakdown", "#333", 12, False),
+            (f"{cut_summary_str}", "#333", 12, True),
         ]
 
         config = {
             "show_carriers": True,
-            "show_endcaps":  False,
-            "show_joints":   True,
-            "bar_color":     "#888",
-            "info_lines":    info_lines,
+            "show_endcaps": False,
+            "show_joints": True,
+            "bar_color": "#888",
+            "info_lines": info_lines,
         }
         return config
-
 
     def run(self):
 
@@ -272,47 +248,42 @@ class SLouverCalculator:
 
         # PROFILE
         data["req_plan"] = data.apply(profile_utils.build_req_plan, axis=1)
-        master_req = profile_utils.combine_req_plan(data["req_plan"])
+        # master_req = profile_utils.combine_req_plan(data["req_plan"])
         out = profile_utils.optimize_stock_v2(data)
         data["cut_plan"] = data.apply(
-            lambda row: profile_utils.build_window_cut_plan(row, out["bars"]),
-            axis=1
+            lambda row: profile_utils.build_window_cut_plan(row, out["bars"]), axis=1
         )
 
         # CARRIER
         data["carrier_distances"] = data.apply(
             lambda row: profile_utils.calculate_carrier_distances(row["cut_summary"]),
-            axis=1
+            axis=1,
         )
         data["total_carrier_divisions"] = data["carrier_distances"].apply(
             lambda x: sum(len(sublist) for sublist in x)
         )
         data["total_carrier_length"] = data.apply(
-            lambda row: row["total_carrier_divisions"]*row["perpendicular_length"],
-            axis=1
+            lambda row: row["total_carrier_divisions"] * row["perpendicular_length"],
+            axis=1,
         )
-        data['num_carrier_pieces'] = data.apply(
-            lambda row: math.ceil(row['total_carrier_length'] / 133.7),
-            axis=1
+        data["num_carrier_pieces"] = data.apply(
+            lambda row: math.ceil(row["total_carrier_length"] / 133.7), axis=1
         )
 
         # ACCS
-        data['self_drill_screws'] = data.apply(
-            lambda row: int(math.ceil(
-                (row['divisions'] * row['total_carrier_divisions']) + (row['num_carrier_pieces'] * 2)
-            )),
-            axis=1
+        data["self_drill_screws"] = data.apply(
+            lambda row: int(
+                math.ceil(
+                    (row["divisions"] * row["total_carrier_divisions"])
+                    + (row["num_carrier_pieces"] * 2)
+                )
+            ),
+            axis=1,
         )
 
         offer_df_cols, offer_df = generate_offer_df(data)
         inventory_df = generate_inventory_df(self, data, out["stock_plan"])
 
-        results = [
-            data,
-            offer_df_cols,
-            offer_df,
-            inventory_df
-        ]
+        results = [data, offer_df_cols, offer_df, inventory_df]
 
         return results
-

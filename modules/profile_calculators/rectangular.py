@@ -1,4 +1,3 @@
-
 import streamlit as st
 import pandas as pd
 import math
@@ -95,21 +94,25 @@ def generate_inventory_df(self, data, stock_plan):
         profile_rows = []
         for item in stock_plan:
             section_code, section_name = RECTANGULAR_SECTION_MAPPER[self.louver_size]
-            profile_rows.append({
-                "Product Code": section_code,
-                "Product Name": section_name,
-                "Length": item["length"],
-                "Quantity": item["qty"],
-                "UOM": "m",
-            })
+            profile_rows.append(
+                {
+                    "Product Code": section_code,
+                    "Product Name": section_name,
+                    "Length": item["length"],
+                    "Quantity": item["qty"],
+                    "UOM": "m",
+                }
+            )
 
-        carrier_item = [{
-            "Product Code": RECTANGULAR_CARRIER_CODES["CARRIER_50X35"][0],
-            "Product Name": RECTANGULAR_CARRIER_CODES["CARRIER_50X35"][1],
-            "Length": 3650,
-            "Quantity": int(math.ceil(row["total_carrier_length"] / 3650)),
-            "UOM": "m",
-        }]
+        carrier_item = [
+            {
+                "Product Code": RECTANGULAR_CARRIER_CODES["CARRIER_50X35"][0],
+                "Product Name": RECTANGULAR_CARRIER_CODES["CARRIER_50X35"][1],
+                "Length": 3650,
+                "Quantity": int(math.ceil(row["total_carrier_length"] / 3650)),
+                "UOM": "m",
+            }
+        ]
 
         paint_qty = round(row["divisions"] / 50 * 2) / 2
 
@@ -172,15 +175,12 @@ def generate_inventory_df(self, data, stock_plan):
                 "Colour",
                 "Finish",
                 "CNC Hole Distance",
-                "Remarks"
+                "Remarks",
             ],
             as_index=False,
-            sort=False
+            sort=False,
         )
-        .agg({
-            "Quantity": "sum",
-            "item_order": "min"
-        })
+        .agg({"Quantity": "sum", "item_order": "min"})
         .sort_values(["item_order"])
         .drop(columns=["item_order"])
     )
@@ -195,16 +195,15 @@ class RectangularCalculator:
         self.louver_size = vars["louver_size"]
         self.pitch = vars["pitch"]
         self.areas = vars["areas"]
-    
 
     def validate_input(row, idx):
 
         VALID_ENDCAPS_BOTH = {"No Endcaps", "Both sides"}
-        VERTICAL_ENDCAPS   = {"Top Side", "Bottom Side"}
+        VERTICAL_ENDCAPS = {"Top Side", "Bottom Side"}
         HORIZONTAL_ENDCAPS = {"Right Side", "Left Side"}
 
         orientation = str(row.get("orientation", "")).strip()
-        endcaps     = str(row.get("endcaps", "")).strip()
+        endcaps = str(row.get("endcaps", "")).strip()
 
         valid = VALID_ENDCAPS_BOTH | (
             HORIZONTAL_ENDCAPS if orientation == "Horizontal" else VERTICAL_ENDCAPS
@@ -219,19 +218,20 @@ class RectangularCalculator:
 
         return True
 
-
     def get_data_input():
 
-        empty_df = pd.DataFrame({
-            "s_no": pd.Series(dtype="str"),
-            "area_name": pd.Series(dtype="str"),
-            "height": pd.Series(dtype="int"),
-            "width": pd.Series(dtype="int"),
-            "orientation": pd.Series(dtype="str"),
-            "endcaps": pd.Series(dtype="str"),
-            "qty_areas": pd.Series(dtype="int"),
-            "cut_summary": pd.Series(dtype="str"),
-        })
+        empty_df = pd.DataFrame(
+            {
+                "s_no": pd.Series(dtype="str"),
+                "area_name": pd.Series(dtype="str"),
+                "height": pd.Series(dtype="int"),
+                "width": pd.Series(dtype="int"),
+                "orientation": pd.Series(dtype="str"),
+                "endcaps": pd.Series(dtype="str"),
+                "qty_areas": pd.Series(dtype="int"),
+                "cut_summary": pd.Series(dtype="str"),
+            }
+        )
 
         required_cols = [
             "width",
@@ -245,52 +245,25 @@ class RectangularCalculator:
         input_data = st.data_editor(
             data=empty_df,
             column_config={
-                "s_no": st.column_config.TextColumn(
-                    "S. No",
-                    required=False
-                ),
-
-                "area_name": st.column_config.TextColumn(
-                    "Area Name",
-                    required=False
-                ),
-
+                "s_no": st.column_config.TextColumn("S. No", required=False),
+                "area_name": st.column_config.TextColumn("Area Name", required=False),
                 "width": st.column_config.NumberColumn(
-                    "Width (mm)",
-                    min_value=1,
-                    step=1,
-                    required=True
+                    "Width (mm)", min_value=1, step=1, required=True
                 ),
-
                 "height": st.column_config.NumberColumn(
-                    "Height (mm)",
-                    min_value=1,
-                    step=1,
-                    required=True
+                    "Height (mm)", min_value=1, step=1, required=True
                 ),
-
                 "orientation": st.column_config.SelectboxColumn(
-                    "Orientation",
-                    options=["Horizontal", "Vertical"],
-                    required=True
+                    "Orientation", options=["Horizontal", "Vertical"], required=True
                 ),
-
                 "endcaps": st.column_config.SelectboxColumn(
-                    "Endcaps",
-                    options=ENDCAP_MULTIPLIER.keys(),
-                    required=True
+                    "Endcaps", options=ENDCAP_MULTIPLIER.keys(), required=True
                 ),
-
                 "qty_areas": st.column_config.NumberColumn(
-                    "Similar Areas",
-                    min_value=1,
-                    step=1,
-                    required=True
+                    "Similar Areas", min_value=1, step=1, required=True
                 ),
-
                 "cut_summary": st.column_config.TextColumn(
-                    "Cut Summary",
-                    required=True
+                    "Cut Summary", required=True
                 ),
             },
             num_rows="dynamic",
@@ -298,14 +271,13 @@ class RectangularCalculator:
 
         return input_data, required_cols
 
-
     def generate_image(row, common_vars):
 
-        pitch         = common_vars["pitch"]
-        divisions     = row["divisions"]
-        cut_summary   = row["cut_summary"]
+        pitch = common_vars["pitch"]
+        divisions = row["divisions"]
+        cut_summary = row["cut_summary"]
         endcap_choice = str(row["endcaps"]).strip()
-        orient        = row["orientation"]
+        orient = row["orientation"]
 
         if len(cut_summary) > 1:
             cut_summary_str = "+".join(str(c) for c in cut_summary)
@@ -314,33 +286,37 @@ class RectangularCalculator:
 
         info_lines = [
             (f"{divisions} Divisions", "#333", 12, True),
-            (f"@ {pitch} mm Pitch",    "#333", 12, True),
-            ("",                       "#333", 12, True),
-            ("Breakdown",              "#333", 12, False),
-            (f"{cut_summary_str}",     "#333", 12, True),
+            (f"@ {pitch} mm Pitch", "#333", 12, True),
+            ("", "#333", 12, True),
+            ("Breakdown", "#333", 12, False),
+            (f"{cut_summary_str}", "#333", 12, True),
         ]
 
         # Compute endcap sides
         draw_top = draw_bottom = draw_left = draw_right = False
 
         if orient == "Vertical":
-            draw_top    = endcap_choice in ("Both sides", "Top Side")
+            draw_top = endcap_choice in ("Both sides", "Top Side")
             draw_bottom = endcap_choice in ("Both sides", "Bottom Side")
         else:
             draw_right = endcap_choice in ("Both sides", "Right Side")
-            draw_left  = endcap_choice in ("Both sides", "Left Side")
-        endcap_sides = {"top": draw_top, "bottom": draw_bottom, "left": draw_left, "right": draw_right}
+            draw_left = endcap_choice in ("Both sides", "Left Side")
+        endcap_sides = {
+            "top": draw_top,
+            "bottom": draw_bottom,
+            "left": draw_left,
+            "right": draw_right,
+        }
 
         config = {
             "show_carriers": False,
-            "show_endcaps":  True,
-            "show_joints":   True,
-            "bar_color":     "#888",
-            "info_lines":    info_lines,
-            "endcap_sides":  endcap_sides,
+            "show_endcaps": True,
+            "show_joints": True,
+            "bar_color": "#888",
+            "info_lines": info_lines,
+            "endcap_sides": endcap_sides,
         }
         return config
-
 
     def run(self):
 
@@ -348,46 +324,38 @@ class RectangularCalculator:
 
         # PROFILE
         data["req_plan"] = data.apply(profile_utils.build_req_plan, axis=1)
-        master_req = profile_utils.combine_req_plan(data["req_plan"])
+        # master_req = profile_utils.combine_req_plan(data["req_plan"])
         out = profile_utils.optimize_stock_v2(data)
         data["cut_plan"] = data.apply(
-            lambda row: profile_utils.build_window_cut_plan(row, out["bars"]),
-            axis=1
+            lambda row: profile_utils.build_window_cut_plan(row, out["bars"]), axis=1
         )
 
         # CARRIER
         data["total_carrier_divisions"] = data["divisions"]
         data["total_carrier_length"] = data.apply(
-            lambda row: row["total_carrier_divisions"]*row["single_division_length"],
-            axis=1
+            lambda row: row["total_carrier_divisions"] * row["single_division_length"],
+            axis=1,
         )
 
         # ACCS
         data["endcap_cnt"] = data.apply(
-            lambda row: row["divisions"]* ENDCAP_MULTIPLIER[row["endcaps"]],
-            axis=1
+            lambda row: row["divisions"] * ENDCAP_MULTIPLIER[row["endcaps"]], axis=1
         )
         data["rivet_distance"] = data.apply(
-            lambda row: profile_utils.calculate_carrier_distances(row["cut_summary"]) * row["divisions"],
-            axis=1
+            lambda row: profile_utils.calculate_carrier_distances(row["cut_summary"])
+            * row["divisions"],
+            axis=1,
         )
         data["rivets_per_division"] = data["rivet_distance"].apply(
             lambda x: sum(len(sublist) for sublist in x)
         )
         data["rivet_cnt"] = data.apply(
-            lambda row: row["rivets_per_division"] * row["divisions"],
-            axis=1
+            lambda row: row["rivets_per_division"] * row["divisions"], axis=1
         )
 
         offer_df_cols, offer_df = generate_offer_df(data)
         inventory_df = generate_inventory_df(self, data, out["stock_plan"])
 
-        results = [
-            data,
-            offer_df_cols,
-            offer_df,
-            inventory_df
-        ]
+        results = [data, offer_df_cols, offer_df, inventory_df]
 
         return results
-

@@ -4,6 +4,10 @@ import sys
 import pandas as pd
 import streamlit as st
 
+
+from itertools import combinations_with_replacement
+from collections import Counter, defaultdict
+
 CARRIER_MAX_GAP = 1000
 CARRIER_END_GAP = 150
 STANDARD_PRODUCT_LENGTHS = [3050, 3250, 3650, 4550, 5550, 4350, 4250, 2550]
@@ -144,7 +148,6 @@ def calculate_carrier_distances(length_combination):
     return carrier_distances
 
 
-
 def build_cut_plan(parsed_data, divisions, qty_windows):
     """
     Builds structured cut plan with:
@@ -153,10 +156,7 @@ def build_cut_plan(parsed_data, divisions, qty_windows):
     - grouped scrap with reusable tracking
     """
 
-    window_plan = {
-        "window_id": parsed_data["window_id"],
-        "pieces": []
-    }
+    window_plan = {"window_id": parsed_data["window_id"], "pieces": []}
 
     single_window_qty = divisions
     total_window_qty = int(divisions * qty_windows)
@@ -173,19 +173,16 @@ def build_cut_plan(parsed_data, divisions, qty_windows):
             "cuts": cuts.copy(),
             "single_window_qty": single_window_qty,
             "total_window_qty": total_window_qty,
-            "scrap": []
+            "scrap": [],
         }
 
         if scrap_length > 0:
-            piece_obj["scrap"].append({
-                "length": scrap_length,
-                "reuse": [
-                    {
-                        "reused_in": None,
-                        "qty": single_window_qty
-                    }
-                ]
-            })
+            piece_obj["scrap"].append(
+                {
+                    "length": scrap_length,
+                    "reuse": [{"reused_in": None, "qty": single_window_qty}],
+                }
+            )
 
         window_plan["pieces"].append(piece_obj)
 
@@ -331,10 +328,6 @@ Algorithm              : Column-generation + ILP (PuLP / CBC)
 Fallback               : Fast greedy if PuLP not installed
 """
 
-from itertools import combinations_with_replacement
-from collections import Counter, defaultdict
-import sys
-
 KERF = 5  # mm lost per cut
 STANDARD_LENGTHS = [2450, 3050, 3650, 4550]
 
@@ -342,6 +335,7 @@ STANDARD_LENGTHS = [2450, 3050, 3650, 4550]
 # ──────────────────────────────────────────────
 # Pattern generation (kerf-aware)
 # ──────────────────────────────────────────────
+
 
 def generate_patterns(piece_lengths, stock_lengths, max_cuts=10):
     """
@@ -357,18 +351,21 @@ def generate_patterns(piece_lengths, stock_lengths, max_cuts=10):
                 if used > stock:
                     continue  # combinations_with_replacement is ordered, so we can break
                 waste = stock - used
-                patterns.append({
-                    "stock_length": stock,
-                    "cuts": list(combo),
-                    "waste": waste,
-                    "n_cuts": n_cuts,
-                })
+                patterns.append(
+                    {
+                        "stock_length": stock,
+                        "cuts": list(combo),
+                        "waste": waste,
+                        "n_cuts": n_cuts,
+                    }
+                )
     return patterns
 
 
 # ──────────────────────────────────────────────
 # ILP solver  (requires: pip install pulp)
 # ──────────────────────────────────────────────
+
 
 def solve_ilp(req_plan, stock_lengths):
     """
@@ -406,8 +403,7 @@ def solve_ilp(req_plan, stock_lengths):
     # Demand constraints: each piece length must be covered
     for length, qty in req_plan.items():
         piece_count = pulp.lpSum(
-            x[i] * patterns[i]["cuts"].count(length)
-            for i in range(len(patterns))
+            x[i] * patterns[i]["cuts"].count(length) for i in range(len(patterns))
         )
         prob += piece_count >= qty, f"demand_min_{length}"
 
@@ -429,6 +425,7 @@ def solve_ilp(req_plan, stock_lengths):
 # ──────────────────────────────────────────────
 # Greedy fallback  (no extra dependencies)
 # ──────────────────────────────────────────────
+
 
 def solve_greedy(req_plan, stock_lengths):
     """
@@ -478,6 +475,7 @@ def solve_greedy(req_plan, stock_lengths):
 # Public API
 # ──────────────────────────────────────────────
 
+
 def trim_result(result, req_plan):
     remaining = {int(k): int(v) for k, v in req_plan.items()}
     trimmed = []
@@ -502,12 +500,14 @@ def trim_result(result, req_plan):
                 best_stock = bar["stock_length"]  # fallback to original
 
             new_waste = best_stock - sum(new_cuts) - len(new_cuts) * KERF
-            trimmed.append({
-                "stock_length": best_stock,
-                "cuts": new_cuts,
-                "waste": new_waste,
-                "n_cuts": len(new_cuts),
-            })
+            trimmed.append(
+                {
+                    "stock_length": best_stock,
+                    "cuts": new_cuts,
+                    "waste": new_waste,
+                    "n_cuts": len(new_cuts),
+                }
+            )
 
     return trimmed
 
@@ -515,7 +515,8 @@ def trim_result(result, req_plan):
 def solve_ilp_exact(req_plan, stock_lengths):
     """Second pass: exact quantities, minimise waste globally."""
     try:
-        import pulp, shutil
+        import pulp
+        import shutil
     except ImportError:
         return None, "PuLP not installed"
 
@@ -524,7 +525,10 @@ def solve_ilp_exact(req_plan, stock_lengths):
     patterns = generate_patterns(piece_lengths, stock_lengths)
 
     prob = pulp.LpProblem("CuttingStockExact", pulp.LpMinimize)
-    x = [pulp.LpVariable(f"x{i}", lowBound=0, cat="Integer") for i in range(len(patterns))]
+    x = [
+        pulp.LpVariable(f"x{i}", lowBound=0, cat="Integer")
+        for i in range(len(patterns))
+    ]
 
     # Minimise total waste
     prob += pulp.lpSum(x[i] * patterns[i]["waste"] for i in range(len(patterns)))
@@ -532,8 +536,7 @@ def solve_ilp_exact(req_plan, stock_lengths):
     # EXACT constraints — no over or under
     for length, qty in req_plan.items():
         piece_count = pulp.lpSum(
-            x[i] * patterns[i]["cuts"].count(length)
-            for i in range(len(patterns))
+            x[i] * patterns[i]["cuts"].count(length) for i in range(len(patterns))
         )
         prob += piece_count == qty, f"exact_{length}"
 
@@ -570,13 +573,13 @@ def optimize_stock(req_plan, stock_lengths=None, prefer="ilp"):
             # Pass 2: re-run ILP with tighter objective now that we know exact counts
             # Count what trim would produce, then re-solve cleanly
             trimmed = trim_result(result, req_plan)
-            
+
             # Build exact req from trimmed (no over/under)
             exact_req = Counter()
             for bar in trimmed:
                 for cut in bar["cuts"]:
                     exact_req[cut] += 1
-            
+
             # Re-solve with exact quantities and == constraints
             result2, method2 = solve_ilp_exact(dict(exact_req), stock_lengths)
             if result2:
@@ -591,37 +594,37 @@ def optimize_stock(req_plan, stock_lengths=None, prefer="ilp"):
     # ... rest of summary building
 
     # ── Summary stats ──
-    total_bars      = len(result)
-    total_material  = sum(b["stock_length"] for b in result)
-    total_waste     = sum(b["waste"] for b in result)
+    total_bars = len(result)
+    total_material = sum(b["stock_length"] for b in result)
+    total_waste = sum(b["waste"] for b in result)
     total_kerf_loss = sum(b["n_cuts"] * KERF for b in result)
-    efficiency      = (1 - total_waste / total_material) * 100 if total_material else 0
+    efficiency = (1 - total_waste / total_material) * 100 if total_material else 0
 
     bar_counts = defaultdict(int)
     for b in result:
         bar_counts[b["stock_length"]] += 1
 
     summary = {
-        "total_bars"      : total_bars,
-        "bar_breakdown"   : dict(bar_counts),
+        "total_bars": total_bars,
+        "bar_breakdown": dict(bar_counts),
         "total_material_mm": total_material,
-        "total_waste_mm"  : total_waste,
+        "total_waste_mm": total_waste,
         "total_kerf_loss_mm": total_kerf_loss,
-        "efficiency_pct"  : round(efficiency, 2),
-        "method"          : method,
+        "efficiency_pct": round(efficiency, 2),
+        "method": method,
     }
 
     return {"bars": result, "summary": summary, "method": method}
 
 
 def cross_window_optimize(per_window_bars, stock_lengths, min_saving=200):
-    
+
     good_bars = [b for b in per_window_bars if b["waste"] < 200]
     candidates = [b for b in per_window_bars if b["waste"] >= 200]
-    
+
     if not candidates:
         return per_window_bars
-    
+
     # Pool from high-waste bars
     pool_req = {}
     for bar in candidates:
@@ -633,31 +636,33 @@ def cross_window_optimize(per_window_bars, stock_lengths, min_saving=200):
     MAX_FILLER = min(stock_lengths) // 3  # e.g. 2450//3 = 816mm
     filler_req = {}
     filler_bars_used = []
-    
+
     for bar in good_bars:
         # If this bar only has small pieces, it might combine better with high-waste bars
         if all(c <= MAX_FILLER for c in bar["cuts"]):
             for cut in bar["cuts"]:
                 filler_req[cut] = filler_req.get(cut, 0) + 1
             filler_bars_used.append(bar)
-    
+
     # Combined pool: high-waste pieces + small filler pieces
     combined_req = {**pool_req}
     for k, v in filler_req.items():
         combined_req[k] = combined_req.get(k, 0) + v
-    
+
     # print(f"[Cross-window] Re-optimizing {len(candidates)} high-waste bars "
     #       f"+ {len(filler_bars_used)} small-piece bars...")
-    
+
     re_result, method = solve_ilp_exact(combined_req, stock_lengths)
     if re_result is None:
         return per_window_bars
-    
+
     # Compare total waste
-    original_waste = sum(b["waste"] for b in candidates) + sum(b["waste"] for b in filler_bars_used)
+    original_waste = sum(b["waste"] for b in candidates) + sum(
+        b["waste"] for b in filler_bars_used
+    )
     new_waste = sum(b["waste"] for b in re_result)
     saving = original_waste - new_waste
-    
+
     if saving >= min_saving:
         # print(f"[Cross-window] Saving {saving}mm by recombining "
         #       f"({original_waste}mm → {new_waste}mm)")
@@ -676,46 +681,46 @@ def cross_window_optimize(per_window_bars, stock_lengths, min_saving=200):
 #     """
 #     if stock_lengths is None:
 #         stock_lengths = STANDARD_LENGTHS
-    
+
 #     all_bars = []
-    
+
 #     # ── Stage 1: Per-window solve ──
 #     print("=== Stage 1: Per-window optimization ===")
 #     for idx, row in data.iterrows():
 #         window_req = {int(k): int(v) for k, v in row["req_plan"].items()}
 #         if not window_req:
 #             continue
-        
+
 #         result, method = solve_ilp(window_req, stock_lengths)
 #         if result is None:
 #             result, _ = solve_greedy(window_req, stock_lengths)
 #         result = trim_result(result, window_req)
-        
+
 #         for bar in result:
 #             bar["window_id"] = idx
 #         all_bars.extend(result)
-    
+
 #     stage1_waste = sum(b["waste"] for b in all_bars)
 #     print(f"Stage 1 total waste: {stage1_waste}mm across {len(all_bars)} bars")
-    
+
 #     # ── Stage 2: Cross-window re-optimization of high-waste bars ──
 #     print("\n=== Stage 2: Cross-window gap optimization ===")
 #     all_bars = cross_window_optimize(all_bars, stock_lengths, min_saving=200)
-    
+
 #     stage2_waste = sum(b["waste"] for b in all_bars)
 #     print(f"Stage 2 total waste: {stage2_waste}mm  "
 #           f"(saved {stage1_waste - stage2_waste}mm)")
-    
+
 #     # ── Build summary ──
 #     total_material  = sum(b["stock_length"] for b in all_bars)
 #     total_waste     = sum(b["waste"] for b in all_bars)
 #     total_kerf_loss = sum(b["n_cuts"] * KERF for b in all_bars)
 #     efficiency      = (1 - total_waste / total_material) * 100 if total_material else 0
-    
+
 #     bar_counts = defaultdict(int)
 #     for b in all_bars:
 #         bar_counts[b["stock_length"]] += 1
-    
+
 #     summary = {
 #         "total_bars"        : len(all_bars),
 #         "bar_breakdown"     : dict(bar_counts),
@@ -728,8 +733,9 @@ def cross_window_optimize(per_window_bars, stock_lengths, min_saving=200):
 #         "stage2_waste_mm"   : stage2_waste,
 #         "cross_window_saving_mm": stage1_waste - stage2_waste,
 #     }
-    
+
 #     return {"bars": all_bars, "summary": summary}
+
 
 def build_cut_pool(all_bars):
     """Build a pool of {(length, window_id): qty} from Stage 1 bars."""
@@ -776,9 +782,11 @@ def assign_window_ids(cuts, cut_pool, req_plans=None):
         if req_plans:
             # Prefer windows that still have unfulfilled demand
             candidates = {
-                wid: qty for (l, wid), qty in cut_pool.items()
+                wid: qty
+                for (l, wid), qty in cut_pool.items()
                 if l == length and qty > 0
             }
+
             # Score: windows with remaining demand get priority
             def demand_score(wid):
                 remaining_demand = req_plans.get(wid, {}).get(length, 0)
@@ -796,7 +804,8 @@ def assign_window_ids(cuts, cut_pool, req_plans=None):
         else:
             # Original greedy fallback
             candidates = {
-                wid: qty for (l, wid), qty in cut_pool.items()
+                wid: qty
+                for (l, wid), qty in cut_pool.items()
                 if l == length and qty > 0
             }
             if candidates:
@@ -809,27 +818,26 @@ def assign_window_ids(cuts, cut_pool, req_plans=None):
     return cuts_detail
 
 
-
 def absorb_singleton_bars(all_bars, stock_lengths):
     """
     Find bars with unique patterns (qty=1) where the same cuts exist
     on a different stock length with higher qty. Re-assign to dominant stock.
     """
     from collections import Counter
-    
+
     # Count how many times each (stock_length, cuts) pattern appears
     pattern_counts = Counter()
     for bar in all_bars:
         key = (bar["stock_length"], tuple(sorted(bar["cuts"])))
         pattern_counts[key] += 1
-    
+
     absorbed = []
     for bar in all_bars:
         key = (bar["stock_length"], tuple(sorted(bar["cuts"])))
         if pattern_counts[key] > 1:
             absorbed.append(bar)
             continue
-        
+
         # singleton — check if same cuts exist on another stock length with qty > 1
         cuts_key = tuple(sorted(bar["cuts"]))
         dominant = None
@@ -841,7 +849,7 @@ def absorb_singleton_bars(all_bars, stock_lengths):
                 if stock >= min_needed:
                     dominant = stock
                     best_qty = qty
-        
+
         if dominant:
             # re-assign this bar to dominant stock length
             new_waste = dominant - sum(bar["cuts"]) - len(bar["cuts"]) * KERF
@@ -852,9 +860,9 @@ def absorb_singleton_bars(all_bars, stock_lengths):
             pattern_counts[key] -= 1
             new_key = (dominant, cuts_key)
             pattern_counts[new_key] += 1
-        
+
         absorbed.append(bar)
-    
+
     return absorbed
 
 
@@ -903,16 +911,17 @@ def optimize_stock_v2(data, stock_lengths=None):
     for idx, row in data.iterrows():
         if row["req_plan"]:
             demand_map[idx] = {int(k): int(v) for k, v in row["req_plan"].items()}
-    
-    pool_4900 = {k: v for k, v in cut_pool.items() if k[0] == 4900}
+
+    # pool_4900 = {k: v for k, v in cut_pool.items() if k[0] == 4900}
 
     # Reassign window_ids using demand-aware assignment
     for bar in all_bars:
-        bar["cuts_detail"] = assign_window_ids(bar["cuts"], cut_pool, req_plans=demand_map)
+        bar["cuts_detail"] = assign_window_ids(
+            bar["cuts"], cut_pool, req_plans=demand_map
+        )
         bar["window_id"] = list(set(c["window_id"] for c in bar["cuts_detail"]))
         if len(bar["window_id"]) == 1:
             bar["window_id"] = bar["window_id"][0]
-
 
     stage2_waste = sum(b["waste"] for b in all_bars)
     # print(f"Stage 2 total waste: {stage2_waste}mm  (saved {stage1_waste - stage2_waste}mm)")
@@ -923,47 +932,49 @@ def optimize_stock_v2(data, stock_lengths=None):
         key = (bar["stock_length"], tuple(sorted(bar["cuts"])))
         if key not in grouped:
             grouped[key] = {
-                "length"    : bar["stock_length"],
-                "qty"       : 0,
-                "cuts"      : bar["cuts_detail"].copy(),
-                "waste"     : bar["waste"],
+                "length": bar["stock_length"],
+                "qty": 0,
+                "cuts": bar["cuts_detail"].copy(),
+                "waste": bar["waste"],
                 "window_ids": [],
             }
         grouped[key]["qty"] += 1
-        grouped[key]["window_ids"] = list(set(
-            grouped[key]["window_ids"] +
-            [c["window_id"] for c in bar["cuts_detail"]]
-        ))
+        grouped[key]["window_ids"] = list(
+            set(
+                grouped[key]["window_ids"]
+                + [c["window_id"] for c in bar["cuts_detail"]]
+            )
+        )
 
     stock_plan = sorted(grouped.values(), key=lambda x: -x["qty"])
 
     # ── Summary ──
-    total_material  = sum(b["stock_length"] for b in all_bars)
-    total_waste     = sum(b["waste"] for b in all_bars)
+    total_material = sum(b["stock_length"] for b in all_bars)
+    total_waste = sum(b["waste"] for b in all_bars)
     total_kerf_loss = sum(b["n_cuts"] * KERF for b in all_bars)
-    efficiency      = (1 - total_waste / total_material) * 100 if total_material else 0
+    efficiency = (1 - total_waste / total_material) * 100 if total_material else 0
 
     bar_counts = defaultdict(int)
     for b in all_bars:
         bar_counts[b["stock_length"]] += 1
 
     summary = {
-        "total_bars"            : len(all_bars),
-        "bar_breakdown"         : dict(bar_counts),
-        "total_material_mm"     : total_material,
-        "total_waste_mm"        : total_waste,
-        "total_kerf_loss_mm"    : total_kerf_loss,
-        "efficiency_pct"        : round(efficiency, 2),
-        "method"                : "2-stage",
-        "stage1_waste_mm"       : stage1_waste,
-        "stage2_waste_mm"       : stage2_waste,
+        "total_bars": len(all_bars),
+        "bar_breakdown": dict(bar_counts),
+        "total_material_mm": total_material,
+        "total_waste_mm": total_waste,
+        "total_kerf_loss_mm": total_kerf_loss,
+        "efficiency_pct": round(efficiency, 2),
+        "method": "2-stage",
+        "stage1_waste_mm": stage1_waste,
+        "stage2_waste_mm": stage2_waste,
         "cross_window_saving_mm": stage1_waste - stage2_waste,
     }
 
     return {
-        "bars"      : all_bars,
+        "bars": all_bars,
         "stock_plan": stock_plan,
-        "summary"   : summary,
+        "summary": summary,
     }
 
 
@@ -974,16 +985,21 @@ def build_window_cut_plan(row, bars):
 
     window_bars = []
     for bar in bars:
-        window_cuts = [c["length"] for c in bar["cuts_detail"] if c["window_id"] == window_id]
+        window_cuts = [
+            c["length"] for c in bar["cuts_detail"] if c["window_id"] == window_id
+        ]
         if not window_cuts:
             continue
-        window_bars.append({
-            "stock_length": bar["stock_length"],
-            "cuts": window_cuts,
-        })
+        window_bars.append(
+            {
+                "stock_length": bar["stock_length"],
+                "cuts": window_cuts,
+            }
+        )
 
     # Group identical patterns and count qty correctly
     from collections import Counter
+
     grouped = Counter()
     pattern_cuts = {}
     for entry in window_bars:

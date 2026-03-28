@@ -1,5 +1,4 @@
 import numpy as np
-import pandas as pd
 import streamlit as st
 
 import modules.excel_processor as to_excel
@@ -10,11 +9,7 @@ from modules.profile_calculators.fluted import FlutedCalculator
 from modules.profile_calculators.grille import GrilleCalculator
 from modules.profile_calculators.slouvers import SLouverCalculator
 from modules.profile_calculators.rectangular import RectangularCalculator
-from utils import (
-    get_pitch,
-    parse_cuts,
-    validate_required_fields
-)
+from utils import get_pitch, parse_cuts, validate_required_fields
 
 PRODUCTS = [
     "Grille 2550",
@@ -47,11 +42,11 @@ CALCULATOR_MAPPING = {
 # }
 
 PRODUCT_INPUT_VALIDATOR = {
-    "Grille 2550":  lambda df, corner_df: GrilleCalculator.validate_input,
-    "S-Louver":     lambda df, corner_df: SLouverCalculator.get_validator(df),
-    "Fluted":       lambda df, corner_df: FlutedCalculator.get_validator(df, corner_df),
+    "Grille 2550": lambda df, corner_df: GrilleCalculator.validate_input,
+    "S-Louver": lambda df, corner_df: SLouverCalculator.get_validator(df),
+    "Fluted": lambda df, corner_df: FlutedCalculator.get_validator(df, corner_df),
+    "Cottal": lambda df, corner_df: CottalCalculator.get_validator(df, corner_df),
 }
-
 
 
 def handle_conversion(product, results, common_vars):
@@ -84,21 +79,21 @@ def post_process(common_vars):
         #     data=profile_output_obj,
         #     file_name=f"Profile Sheet - {title}.xlsx",
         # )
-        btn2 = st.download_button(
+        st.download_button(
             label="📥 Download Offer Excel",
             data=offer_output_obj,
             file_name=f"Offer Sheet - {title}.xlsx",
         )
-        btn3 = st.download_button(
+        st.download_button(
             label="📥 Download Inventory Excel",
             data=inv_output_obj,
             file_name=f"Inventory Sheet - {title}.xlsx",
         )
-        btn4 = st.download_button(
+        st.download_button(
             label="📥 Download Installer Excel",
             data=installer_output_obj,
-            file_name=f"Installer Files.zip",
-            mime="application/zip"
+            file_name="Installer Files.zip",
+            mime="application/zip",
         )
         st.success("Files ready for download.")
 
@@ -131,7 +126,7 @@ def run(product, project_title, **kwargs):
                 required_cols,
                 extra_validator=PRODUCT_INPUT_VALIDATOR[vars["product"]](
                     vars["areas"], vars.get("corner_joints")
-                )
+                ),
             )
         else:
             required = validate_required_fields(
@@ -153,18 +148,18 @@ def run(product, project_title, **kwargs):
             if required and valid:
                 st.badge(
                     f'Successfully submitted. Processing {len(vars["areas"])} row(s).',
-                    color="yellow"
+                    color="yellow",
                 )
-            
+
             vars["areas"]["single_division_length"] = np.where(
                 vars["areas"]["orientation"] == "Horizontal",
                 vars["areas"]["width"],
-                vars["areas"]["height"]
+                vars["areas"]["height"],
             )
             vars["areas"]["perpendicular_length"] = np.where(
                 vars["areas"]["orientation"] == "Horizontal",
                 vars["areas"]["height"],
-                vars["areas"]["width"]
+                vars["areas"]["width"],
             )
             vars["areas"]["divisions"] = np.ceil(
                 vars["areas"]["perpendicular_length"] / vars["pitch"]
@@ -194,11 +189,7 @@ def main():
     if product == "Grille 2550":
 
         pitch = get_pitch(product, {})
-        run(
-            product,
-            project_title,
-            pitch=pitch
-        )
+        run(product, project_title, pitch=pitch)
 
     # elif product == "Aerofoil":
     #     af_type = st.selectbox(
@@ -256,23 +247,27 @@ def main():
     #             af_type=af_type,
     #             installation=installation,
     #         )
-    # elif product == "Cottal":
-    #     pipe_grade = st.selectbox("Pipe Grade:", ["50x25", "38x25"], key="pipe_cottal")
-    #     louver_size = st.selectbox("Cottal Size:", ["85 mm", "130 mm", "230 mm"], key="size_cottal")
-    #     run(product, project_title, num_windows, pipe_grade=pipe_grade, louver_size=louver_size)
-    elif product == "Fluted":
+    elif product == "Cottal":
 
-        pipe_grade = st.selectbox(
-            "Pipe Grade:", ["50x25", "38x25"], key="pipe_fluted"
+        pipe_grade = st.selectbox("Pipe Grade:", ["50x25", "38x25"], key="pipe_cottal")
+        louver_size = st.selectbox(
+            "Cottal Size:", ["85 mm", "130 mm", "230 mm"], key="size_cottal"
         )
-        pitch = get_pitch(product, {})
+        pitch = get_pitch(product, {"louver_size": louver_size})
 
         run(
             product,
             project_title,
             pitch=pitch,
-            pipe_grade=pipe_grade
+            pipe_grade=pipe_grade,
+            louver_size=louver_size,
         )
+    elif product == "Fluted":
+
+        pipe_grade = st.selectbox("Pipe Grade:", ["50x25", "38x25"], key="pipe_fluted")
+        pitch = get_pitch(product, {})
+
+        run(product, project_title, pitch=pitch, pipe_grade=pipe_grade)
 
     elif product == "S-Louvers":
 
@@ -283,35 +278,27 @@ def main():
                 # ,'84.2x31.3'
             ],
         )
-        pitch = get_pitch(product, {'louver_size': louver_size})
+        pitch = get_pitch(product, {"louver_size": louver_size})
 
-        run(
-            product,
-            project_title,
-            pitch=pitch,
-            louver_size=louver_size
-        )
+        run(product, project_title, pitch=pitch, louver_size=louver_size)
 
     # elif product == "C-Louvers":
     #     run(product, project_title, num_windows)
     elif product == "Rectangular Louvers":
 
         louver_size = st.selectbox(
-            "Rectangular Louvers Size:", ["30x60", "50x75", "50x100", "50x125"],
-            key="louver_size"
+            "Rectangular Louvers Size:",
+            ["30x60", "50x75", "50x100", "50x125"],
+            key="louver_size",
         )
-        pitch = get_pitch(product, {'louver_size': louver_size})
+        pitch = get_pitch(product, {"louver_size": louver_size})
 
-        run(
-            product,
-            project_title,
-            pitch=pitch,
-            louver_size=louver_size
-        )
+        run(product, project_title, pitch=pitch, louver_size=louver_size)
 
     # elif product == "Beam C-Channel":
     #     pipe_grade = st.selectbox("Pipe Grade:", ["50x25", "25x12"], key="pipe_beamc")
     #     run(product, project_title, num_windows, pipe_grade=pipe_grade)
+
 
 st.set_page_config(layout="wide")
 main()

@@ -247,7 +247,7 @@ def parse_cuts(df):
             if piece_length <= 0:
                 st.warning(f"Row {idx + 1}: Piece length must be greater than 0.")
                 st.stop()
-            
+
             if piece_length > MAX_STOCK_LENGTH:
                 st.warning(
                     f"Row {idx + 1}: Piece length {piece_length}mm exceeds maximum "
@@ -364,7 +364,6 @@ def validate_cut_logic(parsed_data):
 
     for window in parsed_data:
 
-        qty = window["qty"]
         division_length = window["division_length"]
 
         total_used_per_window = 0

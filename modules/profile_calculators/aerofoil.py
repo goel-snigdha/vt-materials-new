@@ -218,11 +218,7 @@ class AerofoilCalculator:
         ]:
             all_rows.extend(block)
 
-        inventory_out = (
-            pd.DataFrame(all_rows)
-            .reindex(columns=INV_COLUMNS)
-            .fillna("")
-        )
+        inventory_out = pd.DataFrame(all_rows).reindex(columns=INV_COLUMNS).fillna("")
         inventory_out["Quantity"] = inventory_out["Quantity"] * self.qty_windows
 
         output_df = self.generate_output_df()
@@ -272,13 +268,15 @@ class AerofoilCalculator:
         profile_rows = []
         for item in used_table:
             product_code, product_name = AEROFOIL_SECTION_MAPPER[self.af_type]
-            profile_rows.append({
-                "Product Code": product_code,
-                "Product Name": product_name,
-                "Length": item,
-                "Quantity": used_table[item],
-                "UOM": "m",
-            })
+            profile_rows.append(
+                {
+                    "Product Code": product_code,
+                    "Product Name": product_name,
+                    "Length": item,
+                    "Quantity": used_table[item],
+                    "UOM": "m",
+                }
+            )
 
         # Add C-channel and accessories
         c_plate_code, c_plate_name = C_PLATE_CODES[plate_width]
@@ -318,11 +316,7 @@ class AerofoilCalculator:
         ]:
             all_rows.extend(block)
 
-        inventory_out = (
-            pd.DataFrame(all_rows)
-            .reindex(columns=INV_COLUMNS)
-            .fillna("")
-        )
+        inventory_out = pd.DataFrame(all_rows).reindex(columns=INV_COLUMNS).fillna("")
         inventory_out["Quantity"] = inventory_out["Quantity"] * self.qty_windows
 
         output_df = self.generate_output_df()
@@ -384,13 +378,15 @@ class AerofoilCalculator:
         profile_rows = []
         for item in used_table:
             product_code, product_name = AEROFOIL_SECTION_MAPPER[self.af_type]
-            profile_rows.append({
-                "Product Code": product_code,
-                "Product Name": product_name,
-                "Length": item,
-                "Quantity": used_table[item],
-                "UOM": "m",
-            })
+            profile_rows.append(
+                {
+                    "Product Code": product_code,
+                    "Product Name": product_name,
+                    "Length": item,
+                    "Quantity": used_table[item],
+                    "UOM": "m",
+                }
+            )
 
         all_rows = []
         for block in [
@@ -398,11 +394,7 @@ class AerofoilCalculator:
         ]:
             all_rows.extend(block)
 
-        inventory_out = (
-            pd.DataFrame(all_rows)
-            .reindex(columns=INV_COLUMNS)
-            .fillna("")
-        )
+        inventory_out = pd.DataFrame(all_rows).reindex(columns=INV_COLUMNS).fillna("")
 
         output_df = self.generate_output_df()
         results = pd.DataFrame(
@@ -447,13 +439,15 @@ class AerofoilCalculator:
         profile_rows = []
         for item in used_table:
             product_code, product_name = AEROFOIL_SECTION_MAPPER[self.af_type]
-            profile_rows.append({
-                "Product Code": product_code,
-                "Product Name": product_name,
-                "Length": item,
-                "Quantity": used_table[item],
-                "UOM": "m",
-            })
+            profile_rows.append(
+                {
+                    "Product Code": product_code,
+                    "Product Name": product_name,
+                    "Length": item,
+                    "Quantity": used_table[item],
+                    "UOM": "m",
+                }
+            )
 
         # Add brackets and accessories
         v_bracket_str = (
@@ -543,11 +537,7 @@ class AerofoilCalculator:
             if block:
                 all_rows.extend(block)
 
-        inventory_out = (
-            pd.DataFrame(all_rows)
-            .reindex(columns=INV_COLUMNS)
-            .fillna("")
-        )
+        inventory_out = pd.DataFrame(all_rows).reindex(columns=INV_COLUMNS).fillna("")
         inventory_out["Quantity"] = inventory_out["Quantity"] * self.qty_windows
 
         output_df = self.generate_output_df()
@@ -600,13 +590,15 @@ class AerofoilCalculator:
         profile_rows = []
         for item in used_table:
             product_code, product_name = AEROFOIL_SECTION_MAPPER[self.af_type]
-            profile_rows.append({
-                "Product Code": product_code,
-                "Product Name": product_name,
-                "Length": item,
-                "Quantity": used_table[item],
-                "UOM": "m",
-            })
+            profile_rows.append(
+                {
+                    "Product Code": product_code,
+                    "Product Name": product_name,
+                    "Length": item,
+                    "Quantity": used_table[item],
+                    "UOM": "m",
+                }
+            )
 
         # Get product codes from mappers
         endcap_code, endcap_name = AEROFOIL_ENDCAPS[self.af_type]
@@ -758,11 +750,7 @@ class AerofoilCalculator:
         ]:
             all_rows.extend(block)
 
-        inventory_out = (
-            pd.DataFrame(all_rows)
-            .reindex(columns=INV_COLUMNS)
-            .fillna("")
-        )
+        inventory_out = pd.DataFrame(all_rows).reindex(columns=INV_COLUMNS).fillna("")
         inventory_out["Quantity"] = inventory_out["Quantity"] * self.qty_windows
 
         output_df = self.generate_output_df()

@@ -2,13 +2,10 @@ import math
 import os
 import shutil
 import matplotlib.pyplot as plt
-import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 from matplotlib.patches import Patch
 from io import BytesIO
 from matplotlib.lines import Line2D
-import matplotlib.patches as patches
-from io import BytesIO
 from openpyxl.styles import Alignment, Border, Font, Side
 from openpyxl.worksheet.datavalidation import DataValidation
 
@@ -69,8 +66,6 @@ NON_NUMERIC_COLS = [
     "MS Rod Lengths (mm)",
     "Total MS Rods for each Length (pcs)",
 ]
-
-# Updated INV_COLUMNS with Product Code restored
 INV_COLUMNS = [
     "Product Code",
     "Product Name",
@@ -82,15 +77,11 @@ INV_COLUMNS = [
     "CNC Hole Distance",
     "Remarks",
 ]
-
-# Updated PIPE_MAPPER with codes restored
 PIPE_MAPPER = {
     "50x25": ("AC-RT-5025-02", "RECTANGULAR TUBE 50x25"),
     "38x25": ("RT-3825-01", "RECTANGULAR TUBE 38x25"),
     "25x12": ("RT-2512-01", "RECTANGULAR TUBE 25x12"),
 }
-
-# Common accessory codes
 COMMON_ACCESSORIES = {
     "BLACK_GYPSUM_19MM": ("AC-SC-DW19", "BLACK GYPSUM DRYWALL SCREW 19MM"),
     "FULL_THREADED_75MM": ("AC-SC-FT75", "FULL THREADED SCREW 75MM"),
@@ -109,13 +100,11 @@ COMMON_ACCESSORIES = {
     "L_ANGLE_25X25": ("AC-LA-2525", "L-ANGLE 25x25"),
     "GRILLE_CARRIER": ("GR-CA-01", "GRILLE CARRIER"),
 }
-
 PVC_GITTY_TYPES = [
     ("AC-GT-1030", "PVC GITTY 30X10MM"),
     ("AC-GT-1040", "PVC GITTY 40X10MM"),
     ("AC-GT-1050", "PVC GITTY 50X10MM"),
 ]
-
 FT_TYPES = [
     ("AC-SC-FT19", "FULL THREADED SCREW 19MM"),
     ("AC-SC-FT25", "FULL THREADED SCREW 25MM"),
@@ -124,7 +113,6 @@ FT_TYPES = [
     ("AC-SC-FT63", "FULL THREADED SCREW 63MM"),
     ("AC-SC-FT75", "FULL THREADED SCREW 75MM"),
 ]
-
 SELF_DRILLING_TYPES = [
     ("AC-SC-SD19", "SELF DRILLING SCREW 19MM"),
     ("AC-SC-SD25", "SELF DRILLING SCREW 25MM"),
@@ -132,21 +120,32 @@ SELF_DRILLING_TYPES = [
     ("AC-SC-SD50", "SELF DRILLING SCREW 50MM"),
     ("AC-AC-RV6", "RIVET 6MM"),
 ]
-
 COTTAL_CORNERS = [
     ("CT-C1-02", "COTTAL CORNER 1"),
     ("CT-C2-02", "COTTAL CORNER 2"),
     ("CT-C3-02", "COTTAL CORNER 3"),
     ("CT-C4-02", "COTTAL CORNER 4"),
 ]
-
 L_ANGLE = [
     ("AC-LA-1919", "L-ANGLE 19x19"),
     ("AC-LA-2525", "L-ANGLE 25x25"),
     ("AC-LA-2550", "L-ANGLE 25x50"),
     ("AC-LA-5050", "L-ANGLE 50x50"),
 ]
-
+COVERING_PIPES = [
+    ("RT-2512-01", "RECTANGULAR TUBE 25x12"),
+    ("RT-3825-01", "RECTANGULAR TUBE 38x25"),
+    ("RT-5025-02", "RECTANGULAR TUBE 50x25"),
+    ("RT-7525-02", "RECTANGULAR TUBE 75x25"),
+    ("RT-5075-02", "RECTANGULAR TUBE 50x75"),
+    ("RT-7512-02", "RECTANGULAR TUBE 75x12"),
+    ("RT-100100-02", "RECTANGULAR TUBE 100x100"),
+    ("RT-1515-02", "RECTANGULAR TUBE 1.5x1.5"),
+    ("RT-0201-02", "RECTANGULAR TUBE 2x1"),
+    ("RT-0301-02", "RECTANGULAR TUBE 3x1"),
+]
+COVERING_OPTIONS = [item[1] for item in L_ANGLE + COVERING_PIPES]
+COVERING_CODE_MAP = {item[1]: item[0] for item in L_ANGLE + COVERING_PIPES}
 BLACK_GYPSUM = [
     ("AC-SC-DW12", "BLACK GYPSUM DRYWALL SCREW 12MM"),
     ("AC-SC-DW19", "BLACK GYPSUM DRYWALL SCREW 19MM"),
@@ -202,11 +201,9 @@ def set_cell(sheet_type, cell, value, bold=False, alignment="center", size=10):
         "offer": "Montserrat",
         "profile": "Times New Roman",
         "inventory": "Times New Roman",
-        "installer": "Arial"
+        "installer": "Arial",
     }
-    row_height_map = {
-        "offer": 30
-    }
+    row_height_map = {"offer": 30}
 
     font = font_map[sheet_type]
 
@@ -216,11 +213,7 @@ def set_cell(sheet_type, cell, value, bold=False, alignment="center", size=10):
     cell.value = value
     font = Font(name=font, size=size, bold=bold)
     cell.font = font
-    cell.alignment = Alignment(
-        horizontal=alignment,
-        vertical="center",
-        wrap_text=True
-    )
+    cell.alignment = Alignment(horizontal=alignment, vertical="center", wrap_text=True)
 
     if sheet_type in row_height_map:
         cell.parent.row_dimensions[cell.row].height = row_height_map[sheet_type]
@@ -295,16 +288,12 @@ def adjust_cell(cell, threshold=35):
 
 def add_total_border(xl, row, col_start, col_end):
 
-    top_border = Border(
-        top=Side(style="thin", color="FD5300")
-    )
+    top_border = Border(top=Side(style="thin", color="FD5300"))
 
     for col in range(col_start, col_end + 1):
         cell = xl.cell(row=row, column=col)
 
-        cell.border = Border(
-            top=top_border.top
-        )
+        cell.border = Border(top=top_border.top)
 
         adjust_cell(cell)
 
@@ -401,7 +390,9 @@ def remove_zero_total_cols(xl, zero_cols, col_max, title_only, offer_df_cols):
         xl.merge_cells(start_row=1, end_row=2, start_column=9, end_column=col_max)
         cell = xl.cell(row=1, column=9)
         set_cell("offer", cell, titles[1], bold=True, size=12)
-        cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+        cell.alignment = Alignment(
+            horizontal="center", vertical="center", wrap_text=True
+        )
 
     return xl, col_max
 
@@ -511,12 +502,16 @@ def generate_window_image(row, common_vars, product_config):
 
     plt.rcdefaults()
 
-    width  = row["width"]
+    width = row["width"]
     height = row["height"]
     orient = row["orientation"]
-    cuts   = row["cut_summary"]
+    cuts = row["cut_summary"]
 
-    carrier_distances = row.get("carrier_distances", []) if product_config.get("show_carriers", False) else []
+    carrier_distances = (
+        row.get("carrier_distances", [])
+        if product_config.get("show_carriers", False)
+        else []
+    )
 
     N_BARS = 20
 
@@ -533,22 +528,23 @@ def generate_window_image(row, common_vars, product_config):
 
     # ── Window frame ──
     frame = patches.Rectangle(
-        (0, 0), W, H,
-        linewidth=2, edgecolor="#1a1a1a", facecolor="white", zorder=2
+        (0, 0), W, H, linewidth=2, edgecolor="#1a1a1a", facecolor="white", zorder=2
     )
     ax.add_patch(frame)
 
     # ── Right side info panel ──
     info_lines = product_config.get("info_lines", [])
-    line_gap   = 22
-    info_x     = W + 180
-    start_y    = H * 0.7
+    line_gap = 22
+    info_x = W + 180
+    start_y = H * 0.7
     for i, (text, color, size, bold) in enumerate(info_lines):
         ax.text(
-            info_x, start_y - i * line_gap,
+            info_x,
+            start_y - i * line_gap,
             text,
             fontsize=size,
-            ha="center", va="top",
+            ha="center",
+            va="top",
             color=color,
             fontweight="bold" if bold else "normal",
         )
@@ -562,27 +558,28 @@ def generate_window_image(row, common_vars, product_config):
         cumulatives.append(c)
 
     # ── Endcaps ──
-    ENDCAP_SIZE = 6
+    ENDCAP_SIZE = 8
     draw_top = draw_bottom = draw_left = draw_right = False
 
     if product_config.get("show_endcaps", False):
         endcap_sides = product_config.get("endcap_sides", {})
-        draw_top    = endcap_sides.get("top",    False)
+        draw_top = endcap_sides.get("top", False)
         draw_bottom = endcap_sides.get("bottom", False)
-        draw_left   = endcap_sides.get("left",   False)
-        draw_right  = endcap_sides.get("right",  False)
-    
-    print(f"show_endcaps: {product_config.get('show_endcaps')}")
-    print(f"endcap_sides from config: {product_config.get('endcap_sides')}")
-    print(f"draw_top={draw_top} draw_bottom={draw_bottom} draw_left={draw_left} draw_right={draw_right}")
+        draw_left = endcap_sides.get("left", False)
+        draw_right = endcap_sides.get("right", False)
 
     def endcap(x, y):
-        ax.add_patch(patches.Rectangle(
-            (x - ENDCAP_SIZE/2, y - ENDCAP_SIZE/2),
-            ENDCAP_SIZE, ENDCAP_SIZE,
-            linewidth=0.5, edgecolor="#c4b800",
-            facecolor="#F7E301", zorder=5
-        ))
+        ax.add_patch(
+            patches.Rectangle(
+                (x - ENDCAP_SIZE / 2, y - ENDCAP_SIZE / 2),
+                ENDCAP_SIZE,
+                ENDCAP_SIZE,
+                linewidth=0.5,
+                edgecolor="#c4b800",
+                facecolor="#F7E301",
+                zorder=5,
+            )
+        )
 
     bar_color = product_config.get("bar_color", "#888")
 
@@ -590,30 +587,57 @@ def generate_window_image(row, common_vars, product_config):
         # ── Bars ──
         for i in range(N_BARS):
             x = (i + 0.5) * W / N_BARS
-            if draw_top:    endcap(x, H)
-            if draw_bottom: endcap(x, 0)
+            if draw_top:
+                endcap(x, H)
+            if draw_bottom:
+                endcap(x, 0)
             ax.plot([x, x], [0, H], color=bar_color, linewidth=1, zorder=3)
 
         # ── Joint lines + cumulative labels (right side) ──
         if product_config.get("show_joints", True):
             for cum in cumulatives:
-                y_pos   = (cum / total) * H
-                is_edge = (cum == total)
+                y_pos = (cum / total) * H
+                is_edge = cum == total
                 if not is_edge:
-                    ax.plot([0, W], [y_pos, y_pos],
-                            color="#e63946", linewidth=1.8, zorder=4)
-                ax.text(W + 8, y_pos, f"{cum}", fontsize=12,
-                        va="center", ha="left", color="#e63946", fontweight="bold")
+                    ax.plot(
+                        [0, W], [y_pos, y_pos], color="#e63946", linewidth=1.8, zorder=4
+                    )
+                ax.text(
+                    W + 8,
+                    y_pos,
+                    f"{cum}",
+                    fontsize=12,
+                    va="center",
+                    ha="left",
+                    color="#e63946",
+                    fontweight="bold",
+                )
 
-            ax.text(W + 8, 0, "0", fontsize=12,
-                    va="center", ha="left", color="#e63946", fontweight="bold")
+            ax.text(
+                W + 8,
+                0,
+                "0",
+                fontsize=12,
+                va="center",
+                ha="left",
+                color="#e63946",
+                fontweight="bold",
+            )
 
             prev_y = 0
             for cut, cum in zip(cuts, cumulatives):
                 y_pos = (cum / total) * H
                 mid_y = (prev_y + y_pos) / 2
-                ax.text(W + 8, mid_y, f"← {cut}", fontsize=12,
-                        va="center", ha="left", color="#555", fontweight="bold")
+                ax.text(
+                    W + 8,
+                    mid_y,
+                    f"← {cut}",
+                    fontsize=12,
+                    va="center",
+                    ha="left",
+                    color="#555",
+                    fontweight="bold",
+                )
                 prev_y = y_pos
 
         # ── Carrier lines + labels (left side) ──
@@ -621,20 +645,44 @@ def generate_window_image(row, common_vars, product_config):
             piece_start_y = 0
             for piece_idx, (cut, cum) in enumerate(zip(cuts, cumulatives)):
                 piece_end_y = (cum / total) * H
-                piece_h_px  = piece_end_y - piece_start_y
-                piece_len   = cut
+                piece_h_px = piece_end_y - piece_start_y
+                piece_len = cut
 
-                ax.text(-8, piece_start_y, "0", fontsize=12,
-                        va="center", ha="right", color="#2FB6DE", fontweight="bold")
+                ax.text(
+                    -8,
+                    piece_start_y,
+                    "0",
+                    fontsize=12,
+                    va="center",
+                    ha="right",
+                    color="#2FB6DE",
+                    fontweight="bold",
+                )
 
                 if piece_idx < len(carrier_distances):
                     for carrier_pos in carrier_distances[piece_idx]:
-                        y_carrier = piece_start_y + (carrier_pos / piece_len) * piece_h_px
-                        ax.plot([0, W], [y_carrier, y_carrier],
-                                color="#2FB6DE", linewidth=1.4,
-                                linestyle="--", zorder=4, alpha=0.85)
-                        ax.text(-8, y_carrier, f"{carrier_pos}", fontsize=12,
-                                va="center", ha="right", color="#2FB6DE", fontweight="bold")
+                        y_carrier = (
+                            piece_start_y + (carrier_pos / piece_len) * piece_h_px
+                        )
+                        ax.plot(
+                            [0, W],
+                            [y_carrier, y_carrier],
+                            color="#2FB6DE",
+                            linewidth=1.4,
+                            linestyle="--",
+                            zorder=4,
+                            alpha=0.85,
+                        )
+                        ax.text(
+                            -8,
+                            y_carrier,
+                            f"{carrier_pos}",
+                            fontsize=12,
+                            va="center",
+                            ha="right",
+                            color="#2FB6DE",
+                            fontweight="bold",
+                        )
 
                 piece_start_y = piece_end_y
 
@@ -643,30 +691,57 @@ def generate_window_image(row, common_vars, product_config):
         for i in range(N_BARS):
 
             y = (i + 0.5) * H / N_BARS
-            if draw_left:  endcap(0, y)
-            if draw_right: endcap(W, y)
+            if draw_left:
+                endcap(0, y)
+            if draw_right:
+                endcap(W, y)
             ax.plot([0, W], [y, y], color=bar_color, linewidth=1, zorder=3)
 
         # ── Joint lines + cumulative labels (bottom) ──
         if product_config.get("show_joints", True):
             for cum in cumulatives:
-                x_pos   = (cum / total) * W
-                is_edge = (cum == total)
+                x_pos = (cum / total) * W
+                is_edge = cum == total
                 if not is_edge:
-                    ax.plot([x_pos, x_pos], [0, H],
-                            color="#e63946", linewidth=1.8, zorder=4)
-                ax.text(x_pos, -10, f"{cum}", fontsize=12,
-                        ha="center", va="top", color="#e63946", fontweight="bold")
+                    ax.plot(
+                        [x_pos, x_pos], [0, H], color="#e63946", linewidth=1.8, zorder=4
+                    )
+                ax.text(
+                    x_pos,
+                    -10,
+                    f"{cum}",
+                    fontsize=12,
+                    ha="center",
+                    va="top",
+                    color="#e63946",
+                    fontweight="bold",
+                )
 
-            ax.text(0, -10, "0", fontsize=12,
-                    ha="center", va="top", color="#e63946", fontweight="bold")
+            ax.text(
+                0,
+                -10,
+                "0",
+                fontsize=12,
+                ha="center",
+                va="top",
+                color="#e63946",
+                fontweight="bold",
+            )
 
             prev_x = 0
             for cut, cum in zip(cuts, cumulatives):
                 x_pos = (cum / total) * W
                 mid_x = (prev_x + x_pos) / 2
-                ax.text(mid_x, -22, f"{cut}", fontsize=12,
-                        ha="center", va="top", color="#555", fontweight="bold")
+                ax.text(
+                    mid_x,
+                    -22,
+                    f"{cut}",
+                    fontsize=12,
+                    ha="center",
+                    va="top",
+                    color="#555",
+                    fontweight="bold",
+                )
                 prev_x = x_pos
 
         # ── Carrier lines + labels (top side) ──
@@ -674,22 +749,46 @@ def generate_window_image(row, common_vars, product_config):
             piece_start_x = 0
             for piece_idx, (cut, cum) in enumerate(zip(cuts, cumulatives)):
                 piece_end_x = (cum / total) * W
-                piece_w_px  = piece_end_x - piece_start_x
-                piece_len   = cut
+                piece_w_px = piece_end_x - piece_start_x
+                piece_len = cut
 
-                ax.text(piece_start_x, H + 8, "0", fontsize=10,
-                        va="bottom", ha="center", color="#2FB6DE",
-                        fontweight="bold", rotation=45)
+                ax.text(
+                    piece_start_x,
+                    H + 8,
+                    "0",
+                    fontsize=10,
+                    va="bottom",
+                    ha="center",
+                    color="#2FB6DE",
+                    fontweight="bold",
+                    rotation=45,
+                )
 
                 if piece_idx < len(carrier_distances):
                     for carrier_pos in carrier_distances[piece_idx]:
-                        x_carrier = piece_start_x + (carrier_pos / piece_len) * piece_w_px
-                        ax.plot([x_carrier, x_carrier], [0, H],
-                                color="#2FB6DE", linewidth=1.4,
-                                linestyle="--", zorder=4, alpha=0.85)
-                        ax.text(x_carrier, H + 8, f"{carrier_pos}", fontsize=10,
-                                va="bottom", ha="center", color="#2FB6DE",
-                                fontweight="bold", rotation=45)
+                        x_carrier = (
+                            piece_start_x + (carrier_pos / piece_len) * piece_w_px
+                        )
+                        ax.plot(
+                            [x_carrier, x_carrier],
+                            [0, H],
+                            color="#2FB6DE",
+                            linewidth=1.4,
+                            linestyle="--",
+                            zorder=4,
+                            alpha=0.85,
+                        )
+                        ax.text(
+                            x_carrier,
+                            H + 8,
+                            f"{carrier_pos}",
+                            fontsize=10,
+                            va="bottom",
+                            ha="center",
+                            color="#2FB6DE",
+                            fontweight="bold",
+                            rotation=45,
+                        )
 
                 piece_start_x = piece_end_x
 
@@ -699,22 +798,51 @@ def generate_window_image(row, common_vars, product_config):
         extras(ax, row, W, H, total)
 
     # ── Width annotation ──
-    ax.annotate("", xy=(W, H + 45), xytext=(0, H + 45),
-                arrowprops=dict(arrowstyle="<->", color="#333", lw=1.2))
-    ax.text(W / 2, H + 50, f"Width: {width} mm",
-            ha="center", va="bottom", fontsize=10,
-            color="#333", fontweight="bold")
+    ax.annotate(
+        "",
+        xy=(W, H + 45),
+        xytext=(0, H + 45),
+        arrowprops=dict(arrowstyle="<->", color="#333", lw=1.2),
+    )
+    ax.text(
+        W / 2,
+        H + 50,
+        f"Width: {width} mm",
+        ha="center",
+        va="bottom",
+        fontsize=10,
+        color="#333",
+        fontweight="bold",
+    )
 
     # ── Height annotation ──
-    ax.annotate("", xy=(-80, H), xytext=(-80, 0),
-                arrowprops=dict(arrowstyle="<->", color="#333", lw=1.2))
-    ax.text(-90, H / 2, f"Height: {height} mm",
-            ha="right", va="center", fontsize=12,
-            color="#333", fontweight="bold", rotation=90)
+    ax.annotate(
+        "",
+        xy=(-80, H),
+        xytext=(-80, 0),
+        arrowprops=dict(arrowstyle="<->", color="#333", lw=1.2),
+    )
+    ax.text(
+        -90,
+        H / 2,
+        f"Height: {height} mm",
+        ha="right",
+        va="center",
+        fontsize=12,
+        color="#333",
+        fontweight="bold",
+        rotation=90,
+    )
 
     # ── Legend ──
     legend_elements = [
-        Line2D([0], [0], color=bar_color, linewidth=1.5, label=common_vars.get("product", "Profile")),
+        Line2D(
+            [0],
+            [0],
+            color=bar_color,
+            linewidth=1.5,
+            label=common_vars.get("product", "Profile"),
+        ),
     ]
     if product_config.get("show_joints", False):
         legend_elements.append(
@@ -722,7 +850,14 @@ def generate_window_image(row, common_vars, product_config):
         )
     if product_config.get("show_carriers", False):
         legend_elements.append(
-            Line2D([0], [0], color="#2FB6DE", linewidth=1.4, linestyle="--", label="Carrier")
+            Line2D(
+                [0],
+                [0],
+                color="#2FB6DE",
+                linewidth=1.4,
+                linestyle="--",
+                label="Carrier",
+            )
         )
     if product_config.get("show_endcaps", False):
         legend_elements.append(
@@ -772,7 +907,7 @@ def get_libreoffice_path():
 def fill_cut_plan(ws, cut_plan, start_row=70):
     from openpyxl.styles import Border, Side
 
-    thin   = Side(style='thin')
+    thin = Side(style="thin")
     border = Border(left=thin, right=thin, top=thin, bottom=thin)
 
     def apply_border(cell):
@@ -782,8 +917,8 @@ def fill_cut_plan(ws, cut_plan, start_row=70):
 
     for entry in cut_plan:
         stock_length = entry["stock_length"]
-        stock_qty    = entry["qty"]
-        cuts         = entry["cuts"]  # e.g. [1375, 1375, 1375]
+        stock_qty = entry["qty"]
+        cuts = entry["cuts"]  # e.g. [1375, 1375, 1375]
 
         n = len(cuts)  # one row per cut piece
 
@@ -797,12 +932,12 @@ def fill_cut_plan(ws, cut_plan, start_row=70):
             ws.merge_cells(f"A{current_row}:B{current_row}")
             ws.merge_cells(f"F{current_row}:G{current_row}")
 
-        set_cell("installer", ws[f"C{current_row}"], stock_qty,    alignment="center")
+        set_cell("installer", ws[f"C{current_row}"], stock_qty, alignment="center")
         set_cell("installer", ws[f"D{current_row}"], stock_length, alignment="center")
 
         for i, cut_len in enumerate(cuts):
             row = current_row + i
-            set_cell("installer", ws[f"E{row}"], cut_len,   alignment="center")
+            set_cell("installer", ws[f"E{row}"], cut_len, alignment="center")
 
             for col in ["A", "B", "C", "D", "E", "F", "G"]:
                 apply_border(ws[f"{col}{row}"])

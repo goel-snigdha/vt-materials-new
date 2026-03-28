@@ -30,7 +30,7 @@ class BeamCCalculator:
         # waste_per_sheet = STANDARD_BEAM_C_WIDTH % divisions
         no_sheets = math.ceil((total_length) / length_per_sheet)
         # total_waste = waste_per_sheet * no_sheets
-        profile_qty = math.ceil((total_length*2) / STANDARD_PROFILE_LENGTH)
+        profile_qty = math.ceil((total_length * 2) / STANDARD_PROFILE_LENGTH)
         used_table = {STANDARD_BEAM_C_LENGTH: divisions_per_sheet}
         sheet_code, sheet_desc = "BC-SHT-CS", "BEAM C CHANNEL SHEET CUT TO SIZE"
 
@@ -51,33 +51,33 @@ class BeamCCalculator:
                 "Product Name": sheet_desc,
                 "Quantity": divisions_per_sheet * no_sheets,
                 "UOM": "pcs",
-                "Remarks": f"{buffer_width} x {STANDARD_BEAM_C_LENGTH} mm each"
+                "Remarks": f"{buffer_width} x {STANDARD_BEAM_C_LENGTH} mm each",
             },
             {
                 "Product Code": COMMON_ACCESSORIES["EPDM_GASKET"][0],
                 "Product Name": COMMON_ACCESSORIES["EPDM_GASKET"][1],
                 "Quantity": int(math.ceil((total_length * 2) / 1000)),
-                "UOM": "m"
+                "UOM": "m",
             },
             {
                 "Product Code": PIPE_MAPPER[self.pipe_grade][0],
                 "Product Name": PIPE_MAPPER[self.pipe_grade][1],
                 "Length": 3650,
                 "Quantity": int(math.ceil((total_length * 2) / 3650)),
-                "UOM": "m"
+                "UOM": "m",
             },
             {
                 "Product Code": COMMON_ACCESSORIES["RIVET_6MM"][0],
                 "Product Name": COMMON_ACCESSORIES["RIVET_6MM"][1],
                 "Quantity": int(math.ceil(total_length / 300)),
-                "UOM": "pcs"
+                "UOM": "pcs",
             },
             {
                 "Product Code": "AC-GN-SB",
                 "Product Name": "SILICON BOTTLE BLACK",
                 "Quantity": int(math.ceil(total_length / 3000)),
-                "UOM": "pcs"
-            }
+                "UOM": "pcs",
+            },
         ]
 
         if self.pipe_grade == "50x25":
@@ -86,14 +86,14 @@ class BeamCCalculator:
                     "Product Code": COMMON_ACCESSORIES["FULL_THREADED_75MM"][0],
                     "Product Name": COMMON_ACCESSORIES["FULL_THREADED_75MM"][1],
                     "Quantity": int(math.ceil(total_length / 300)),
-                    "UOM": "pcs"
+                    "UOM": "pcs",
                 },
                 {
                     "Product Code": COMMON_ACCESSORIES["PVC_GITTY_50X10MM"][0],
                     "Product Name": COMMON_ACCESSORIES["PVC_GITTY_50X10MM"][1],
                     "Quantity": int(math.ceil(total_length / 300)),
-                    "UOM": "pcs"
-                }
+                    "UOM": "pcs",
+                },
             ]
         elif self.pipe_grade == "25x12":
             screw_rows = [
@@ -101,16 +101,11 @@ class BeamCCalculator:
                     "Product Code": COMMON_ACCESSORIES["SELF_DRILLING_25MM"][0],
                     "Product Name": COMMON_ACCESSORIES["SELF_DRILLING_25MM"][1],
                     "Quantity": int(math.ceil(total_length / 300)),
-                    "UOM": "pcs"
+                    "UOM": "pcs",
                 }
             ]
 
-        l_angle = [
-            {
-                "Product Name": "SELECT L-ANGLES",
-                "UOM": "m"
-            }
-        ]
+        l_angle = [{"Product Name": "SELECT L-ANGLES", "UOM": "m"}]
 
         all_rows = []
         for block in [
@@ -121,11 +116,7 @@ class BeamCCalculator:
         ]:
             all_rows.extend(block)
 
-        inventory_out = (
-            pd.DataFrame(all_rows)
-            .reindex(columns=INV_COLUMNS)
-            .fillna("")
-        )
+        inventory_out = pd.DataFrame(all_rows).reindex(columns=INV_COLUMNS).fillna("")
 
         results = pd.DataFrame(
             {

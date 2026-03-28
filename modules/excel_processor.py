@@ -1,47 +1,28 @@
-import io
-import pandas as pd
-import streamlit as st
-import copy
-import subprocess
-import os
 from io import BytesIO
 from datetime import date
-from openpyxl import Workbook, load_workbook
-from pypdf import PdfWriter, PdfReader
+from openpyxl import load_workbook
 
 import openpyxl
-from openpyxl.worksheet.page import PageMargins
 from openpyxl.worksheet.datavalidation import DataValidation
 from openpyxl.drawing.image import Image as XLImage
 
-from modules.profile_calculators.grille import GrilleCalculator
-from modules.profile_calculators.rectangular import RectangularCalculator
-
 from modules.excel_utils import (
-    BEAMC_PROFILE_COLUMNS,
     BLACK_GYPSUM,
-    COLORS,
     COTTAL_CORNERS,
     FIXING_TYPES,
     FT_TYPES,
-    INV_COLUMNS,
     L_ANGLE,
-    LOUVER_PROFILE_COLUMNS,
     PVC_GITTY_TYPES,
     RECT_EC_FIXING,
     SELF_DRILLING_TYPES,
-    add_box_border,
     add_dropdown,
     add_total_row,
     fill_cut_plan,
     generate_window_image,
-    get_libreoffice_path,
-    # fill_window_data,
     get_xl_templates,
     remove_zero_total_cols,
     set_cell,
-    value,
-    fill_offer_data
+    fill_offer_data,
 )
 from main import CALCULATOR_MAPPING
 
@@ -236,11 +217,7 @@ def generate_offer_xl(start, offer_xl, offer_df, offer_df_cols, common_vars):
     if zero_cols:
         title_only = "Aerofoil Type" not in offer_df.columns
         offer_xl, col_max = remove_zero_total_cols(
-            offer_xl,
-            zero_cols,
-            col_max,
-            title_only,
-            offer_df_cols
+            offer_xl, zero_cols, col_max, title_only, offer_df_cols
         )
 
     if product == "Louvers":
@@ -380,22 +357,28 @@ def generate_installer_xl(inst_xl, area_data, common_vars):
         ws = wb.active
 
         def sc(cell_ref, value, bold=False, alignment="center", size=10):
-            set_cell("installer", ws[cell_ref], value, bold=bold, alignment=alignment, size=size)
+            set_cell(
+                "installer",
+                ws[cell_ref],
+                value,
+                bold=bold,
+                alignment=alignment,
+                size=size,
+            )
 
-        s_no      = row.get("s_no", idx + 1)
+        s_no = row.get("s_no", idx + 1)
         area_name = row.get("area_name", "")
 
-        sc("A6",  common_vars.get("project_title", ""), bold=True)
-        sc("A8",  f"Window {s_no} | {area_name}", bold=True)
+        sc("A6", common_vars.get("project_title", ""), bold=True)
+        sc("A8", f"Window {s_no} | {area_name}", bold=True)
         sc("E15", common_vars.get("product", ""))
 
-        product_config = CALCULATOR_MAPPING[
-            common_vars['product']
-        ].generate_image(row, common_vars)
-        print(f"product_config: {product_config}")
-        img    = generate_window_image(row, common_vars, product_config)
+        product_config = CALCULATOR_MAPPING[common_vars["product"]].generate_image(
+            row, common_vars
+        )
+        img = generate_window_image(row, common_vars, product_config)
         xl_img = XLImage(img)
-        xl_img.width  = 570
+        xl_img.width = 570
         xl_img.height = 550
         xl_img.anchor = "A21"
         ws.add_image(xl_img)
@@ -434,15 +417,15 @@ def convert(product, results, common_vars):
             col = "Installation Method"
         ext = "-" + results[col].iloc[0]
 
-    template = get_xl_templates(product + ext, "profile")
-    wb = openpyxl.load_workbook(template)
-
     offer_template = get_xl_templates(product + ext, "offer")
     offer_wb = openpyxl.load_workbook(offer_template, data_only=False)
     offer_xl = offer_wb.worksheets[0]
 
     start = 4
     offer_xl = generate_offer_xl(start, offer_xl, offer_df, offer_xl_cols, common_vars)
+
+    # template = get_xl_templates(product + ext, "profile")
+    # wb = openpyxl.load_workbook(template)
 
     # profile_xl = wb.worksheets[0]
     # start = 5
@@ -469,7 +452,7 @@ def convert(product, results, common_vars):
         # if product == "Aerofoil":
         #     ext = results["Aerofoil Type"].iloc[0]
         if product in ["S-Louvers", "Rectangular Louvers", "Cottal"]:
-            ext = common_vars['louver_size']
+            ext = common_vars["louver_size"]
 
         xls = {
             # profile_xl: (f"Profile Calculation - {product} {ext}", 3),
@@ -494,4 +477,8 @@ def convert(product, results, common_vars):
     inventory_wb.save(inv_output)
     inv_output.seek(0)
 
-    return offer_output, inv_output, inst_output #profile_output, offer_output, inv_output
+    return (
+        offer_output,
+        inv_output,
+        inst_output,
+    )  # profile_output, offer_output, inv_output
