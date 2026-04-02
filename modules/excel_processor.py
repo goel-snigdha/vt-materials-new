@@ -390,7 +390,7 @@ def generate_installer_xl(inst_xl, area_data, common_vars):
         xl_buf = BytesIO()
         wb.save(xl_buf)
 
-        file_name = f"({idx+1}) Window {s_no} | {area_name}.xlsx"
+        file_name = f"({idx+1}) Window {s_no} - {area_name}.xlsx"
         output_xls.append((file_name, xl_buf))
 
     zip_buffer = BytesIO()
