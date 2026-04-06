@@ -858,12 +858,12 @@ def generate_window_image(row, common_vars, product_config):
                 color=bar_color,
                 linewidth=1.5,
                 # label=common_vars.get('product', ""फ्लूटेड प्रोफाइल""),
-                label="फ्लूटेड प्रोफाइल"
+                label="Profile"
             ),
         ]
         if product_config.get("show_joints", False):
             legend_elements.append(
-                Line2D([0], [0], color="#e63946", linewidth=1.8, label="जोड़ रेखा"),
+                Line2D([0], [0], color="#e63946", linewidth=1.8, label="Joint Line"),
             )
         if product_config.get("show_carriers", False):
             legend_elements.append(
@@ -873,12 +873,12 @@ def generate_window_image(row, common_vars, product_config):
                     color="#2FB6DE",
                     linewidth=1.4,
                     linestyle="--",
-                    label="कैरियर",
+                    label="Carrier",
                 )
             )
         if product_config.get("show_endcaps", False):
             legend_elements.append(
-                Patch(facecolor="#F7E301", edgecolor="#c4b800", label="एंडकैप")
+                Patch(facecolor="#F7E301", edgecolor="#c4b800", label="Endcaps")
             )
         legend_extras = product_config.get("legend_extras", [])
         legend_elements += legend_extras
