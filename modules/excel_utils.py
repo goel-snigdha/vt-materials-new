@@ -173,6 +173,7 @@ def get_xl_templates(product, dir):
         "S-Louvers": f"{path}/s_louver.xlsx",
         "Rectangular Louvers": f"{path}/rectangular.xlsx",
         "Beam C-Channel": f"{path}/beam_c_channel.xlsx",
+        "CNC Sheets": f"{path}/cnc_sheets.xlsx",
     }
     return XL_TEMPLATES[product]
 
@@ -500,384 +501,406 @@ def add_dropdown(xl, lst):
 
 def generate_window_image(row, common_vars, product_config):
 
-    plt.rcdefaults()
+    if common_vars['product'] == "CNC Sheets":
 
-    width = row["width"]
-    height = row["height"]
-    orient = row["orientation"]
-    cuts = row["cut_summary"]
+        plt.rcdefaults()
+        fig, ax = plt.subplots(figsize=(10, 8))
 
-    carrier_distances = (
-        row.get("carrier_distances", [])
-        if product_config.get("show_carriers", False)
-        else []
-    )
-
-    N_BARS = 20
-
-    fig, ax = plt.subplots(figsize=(10, 8))
-    if height >= width:
-        W, H = 300, 380
     else:
-        W, H = 380, 300
 
-    ax.set_xlim(-120, W + 280)
-    ax.set_ylim(-70, H + 70)
-    ax.set_aspect("equal")
-    ax.axis("off")
+        plt.rcdefaults()
 
-    # ── Window frame ──
-    frame = patches.Rectangle(
-        (0, 0), W, H, linewidth=2, edgecolor="#1a1a1a", facecolor="white", zorder=2
-    )
-    ax.add_patch(frame)
+        width = row["width"]
+        height = row["height"]
+        orient = row["orientation"]
+        cuts = row["cut_summary"]
 
-    # ── Right side info panel ──
-    info_lines = product_config.get("info_lines", [])
-    line_gap = 22
-    info_x = W + 180
-    start_y = H * 0.7
-    for i, (text, color, size, bold) in enumerate(info_lines):
-        ax.text(
-            info_x,
-            start_y - i * line_gap,
-            text,
-            fontsize=size,
-            ha="center",
-            va="top",
-            color=color,
-            fontweight="bold" if bold else "normal",
+        carrier_distances = (
+            row.get("carrier_distances", [])
+            if product_config.get("show_carriers", False)
+            else []
         )
 
-    # ── Cumulative joint positions ──
-    total = sum(cuts)
-    cumulatives = []
-    c = 0
-    for cut in cuts:
-        c += cut
-        cumulatives.append(c)
+        N_BARS = 20
 
-    # ── Endcaps ──
-    ENDCAP_SIZE = 8
-    draw_top = draw_bottom = draw_left = draw_right = False
+        fig, ax = plt.subplots(figsize=(10, 8))
+        if height >= width:
+            W, H = 300, 380
+        else:
+            W, H = 380, 300
 
-    if product_config.get("show_endcaps", False):
-        endcap_sides = product_config.get("endcap_sides", {})
-        draw_top = endcap_sides.get("top", False)
-        draw_bottom = endcap_sides.get("bottom", False)
-        draw_left = endcap_sides.get("left", False)
-        draw_right = endcap_sides.get("right", False)
+        ax.set_xlim(-120, W + 280)
+        ax.set_ylim(-70, H + 70)
+        ax.set_aspect("equal")
+        ax.axis("off")
 
-    def endcap(x, y):
-        ax.add_patch(
-            patches.Rectangle(
-                (x - ENDCAP_SIZE / 2, y - ENDCAP_SIZE / 2),
-                ENDCAP_SIZE,
-                ENDCAP_SIZE,
-                linewidth=0.5,
-                edgecolor="#c4b800",
-                facecolor="#F7E301",
-                zorder=5,
-            )
+        # ── Window frame ──
+        frame = patches.Rectangle(
+            (0, 0), W, H, linewidth=2, edgecolor="#1a1a1a", facecolor="white", zorder=2
         )
+        ax.add_patch(frame)
 
-    bar_color = product_config.get("bar_color", "#888")
+        # ── Right side info panel ──
+        info_lines = product_config.get("info_lines", [])
+        line_gap = 22
+        info_x = W + 180
+        start_y = H * 0.7
 
-    if orient == "Vertical":
-        # ── Bars ──
-        for i in range(N_BARS):
-            x = (i + 0.5) * W / N_BARS
-            if draw_top:
-                endcap(x, H)
-            if draw_bottom:
-                endcap(x, 0)
-            ax.plot([x, x], [0, H], color=bar_color, linewidth=1, zorder=3)
-
-        # ── Joint lines + cumulative labels (right side) ──
-        if product_config.get("show_joints", True):
-            for cum in cumulatives:
-                y_pos = (cum / total) * H
-                is_edge = cum == total
-                if not is_edge:
-                    ax.plot(
-                        [0, W], [y_pos, y_pos], color="#e63946", linewidth=1.8, zorder=4
-                    )
-                ax.text(
-                    W + 8,
-                    y_pos,
-                    f"{cum}",
-                    fontsize=12,
-                    va="center",
-                    ha="left",
-                    color="#e63946",
-                    fontweight="bold",
-                )
-
+        for i, (text, color, size, bold) in enumerate(info_lines):
+            # devanagari_font = font_manager.FontProperties(
+            #     family=["Arial Unicode MS"],#, "Nirmala UI", "Arial Unicode MS"],
+            #     weight="bold" if bold else "normal",
+            #     size=size
+            # )
             ax.text(
-                W + 8,
-                0,
-                "0",
-                fontsize=12,
-                va="center",
-                ha="left",
-                color="#e63946",
-                fontweight="bold",
-            )
-
-            prev_y = 0
-            for cut, cum in zip(cuts, cumulatives):
-                y_pos = (cum / total) * H
-                mid_y = (prev_y + y_pos) / 2
-                ax.text(
-                    W + 8,
-                    mid_y,
-                    f"← {cut}",
-                    fontsize=12,
-                    va="center",
-                    ha="left",
-                    color="#555",
-                    fontweight="bold",
-                )
-                prev_y = y_pos
-
-        # ── Carrier lines + labels (left side) ──
-        if product_config.get("show_carriers", False):
-            piece_start_y = 0
-            for piece_idx, (cut, cum) in enumerate(zip(cuts, cumulatives)):
-                piece_end_y = (cum / total) * H
-                piece_h_px = piece_end_y - piece_start_y
-                piece_len = cut
-
-                ax.text(
-                    -8,
-                    piece_start_y,
-                    "0",
-                    fontsize=12,
-                    va="center",
-                    ha="right",
-                    color="#2FB6DE",
-                    fontweight="bold",
-                )
-
-                if piece_idx < len(carrier_distances):
-                    for carrier_pos in carrier_distances[piece_idx]:
-                        y_carrier = (
-                            piece_start_y + (carrier_pos / piece_len) * piece_h_px
-                        )
-                        ax.plot(
-                            [0, W],
-                            [y_carrier, y_carrier],
-                            color="#2FB6DE",
-                            linewidth=1.4,
-                            linestyle="--",
-                            zorder=4,
-                            alpha=0.85,
-                        )
-                        ax.text(
-                            -8,
-                            y_carrier,
-                            f"{carrier_pos}",
-                            fontsize=12,
-                            va="center",
-                            ha="right",
-                            color="#2FB6DE",
-                            fontweight="bold",
-                        )
-
-                piece_start_y = piece_end_y
-
-    else:  # Horizontal
-        # ── Bars ──
-        for i in range(N_BARS):
-
-            y = (i + 0.5) * H / N_BARS
-            if draw_left:
-                endcap(0, y)
-            if draw_right:
-                endcap(W, y)
-            ax.plot([0, W], [y, y], color=bar_color, linewidth=1, zorder=3)
-
-        # ── Joint lines + cumulative labels (bottom) ──
-        if product_config.get("show_joints", True):
-            for cum in cumulatives:
-                x_pos = (cum / total) * W
-                is_edge = cum == total
-                if not is_edge:
-                    ax.plot(
-                        [x_pos, x_pos], [0, H], color="#e63946", linewidth=1.8, zorder=4
-                    )
-                ax.text(
-                    x_pos,
-                    -10,
-                    f"{cum}",
-                    fontsize=12,
-                    ha="center",
-                    va="top",
-                    color="#e63946",
-                    fontweight="bold",
-                )
-
-            ax.text(
-                0,
-                -10,
-                "0",
-                fontsize=12,
+                info_x,
+                start_y - i * line_gap,
+                text,
+                fontsize=size,
                 ha="center",
                 va="top",
-                color="#e63946",
-                fontweight="bold",
+                color=color,
+                fontweight="bold" if bold else "normal",
+                # fontproperties=devanagari_font,
+
             )
 
-            prev_x = 0
-            for cut, cum in zip(cuts, cumulatives):
-                x_pos = (cum / total) * W
-                mid_x = (prev_x + x_pos) / 2
+        # ── Cumulative joint positions ──
+        total = sum(cuts)
+        cumulatives = []
+        c = 0
+        for cut in cuts:
+            c += cut
+            cumulatives.append(c)
+
+        # ── Endcaps ──
+        ENDCAP_SIZE = 8
+        draw_top = draw_bottom = draw_left = draw_right = False
+
+        if product_config.get("show_endcaps", False):
+            endcap_sides = product_config.get("endcap_sides", {})
+            draw_top = endcap_sides.get("top", False)
+            draw_bottom = endcap_sides.get("bottom", False)
+            draw_left = endcap_sides.get("left", False)
+            draw_right = endcap_sides.get("right", False)
+
+        def endcap(x, y):
+            ax.add_patch(
+                patches.Rectangle(
+                    (x - ENDCAP_SIZE / 2, y - ENDCAP_SIZE / 2),
+                    ENDCAP_SIZE,
+                    ENDCAP_SIZE,
+                    linewidth=0.5,
+                    edgecolor="#c4b800",
+                    facecolor="#F7E301",
+                    zorder=5,
+                )
+            )
+
+        bar_color = product_config.get("bar_color", "#888")
+
+        if orient == "Vertical":
+            # ── Bars ──
+            for i in range(N_BARS):
+                x = (i + 0.5) * W / N_BARS
+                if draw_top:
+                    endcap(x, H)
+                if draw_bottom:
+                    endcap(x, 0)
+                ax.plot([x, x], [0, H], color=bar_color, linewidth=1, zorder=3)
+
+            # ── Joint lines + cumulative labels (right side) ──
+            if product_config.get("show_joints", True):
+                for cum in cumulatives:
+                    y_pos = (cum / total) * H
+                    is_edge = cum == total
+                    if not is_edge:
+                        ax.plot(
+                            [0, W], [y_pos, y_pos], color="#e63946", linewidth=1.8, zorder=4
+                        )
+                    ax.text(
+                        W + 8,
+                        y_pos,
+                        f"{cum}",
+                        fontsize=12,
+                        va="center",
+                        ha="left",
+                        color="#e63946",
+                        fontweight="bold",
+                    )
+
                 ax.text(
-                    mid_x,
-                    -22,
-                    f"{cut}",
+                    W + 8,
+                    0,
+                    "0",
+                    fontsize=12,
+                    va="center",
+                    ha="left",
+                    color="#e63946",
+                    fontweight="bold",
+                )
+
+                prev_y = 0
+                for cut, cum in zip(cuts, cumulatives):
+                    y_pos = (cum / total) * H
+                    mid_y = (prev_y + y_pos) / 2
+                    ax.text(
+                        W + 8,
+                        mid_y,
+                        f"← {cut}",
+                        fontsize=12,
+                        va="center",
+                        ha="left",
+                        color="#555",
+                        fontweight="bold",
+                    )
+                    prev_y = y_pos
+
+            # ── Carrier lines + labels (left side) ──
+            if product_config.get("show_carriers", False):
+                piece_start_y = 0
+                for piece_idx, (cut, cum) in enumerate(zip(cuts, cumulatives)):
+                    piece_end_y = (cum / total) * H
+                    piece_h_px = piece_end_y - piece_start_y
+                    piece_len = cut
+
+                    ax.text(
+                        -8,
+                        piece_start_y,
+                        "0",
+                        fontsize=12,
+                        va="center",
+                        ha="right",
+                        color="#2FB6DE",
+                        fontweight="bold",
+                    )
+
+                    if piece_idx < len(carrier_distances):
+                        for carrier_pos in carrier_distances[piece_idx]:
+                            y_carrier = (
+                                piece_start_y + (carrier_pos / piece_len) * piece_h_px
+                            )
+                            ax.plot(
+                                [0, W],
+                                [y_carrier, y_carrier],
+                                color="#2FB6DE",
+                                linewidth=1.4,
+                                linestyle="--",
+                                zorder=4,
+                                alpha=0.85,
+                            )
+                            ax.text(
+                                -8,
+                                y_carrier,
+                                f"{carrier_pos}",
+                                fontsize=12,
+                                va="center",
+                                ha="right",
+                                color="#2FB6DE",
+                                fontweight="bold",
+                            )
+
+                    piece_start_y = piece_end_y
+
+        else:  # Horizontal
+            # ── Bars ──
+            for i in range(N_BARS):
+
+                y = (i + 0.5) * H / N_BARS
+                if draw_left:
+                    endcap(0, y)
+                if draw_right:
+                    endcap(W, y)
+                ax.plot([0, W], [y, y], color=bar_color, linewidth=1, zorder=3)
+
+            # ── Joint lines + cumulative labels (bottom) ──
+            if product_config.get("show_joints", True):
+                for cum in cumulatives:
+                    x_pos = (cum / total) * W
+                    is_edge = cum == total
+                    if not is_edge:
+                        ax.plot(
+                            [x_pos, x_pos], [0, H], color="#e63946", linewidth=1.8, zorder=4
+                        )
+                    ax.text(
+                        x_pos,
+                        -10,
+                        f"{cum}",
+                        fontsize=12,
+                        ha="center",
+                        va="top",
+                        color="#e63946",
+                        fontweight="bold",
+                    )
+
+                ax.text(
+                    0,
+                    -10,
+                    "0",
                     fontsize=12,
                     ha="center",
                     va="top",
-                    color="#555",
+                    color="#e63946",
                     fontweight="bold",
                 )
-                prev_x = x_pos
 
-        # ── Carrier lines + labels (top side) ──
-        if product_config.get("show_carriers", False):
-            piece_start_x = 0
-            for piece_idx, (cut, cum) in enumerate(zip(cuts, cumulatives)):
-                piece_end_x = (cum / total) * W
-                piece_w_px = piece_end_x - piece_start_x
-                piece_len = cut
+                prev_x = 0
+                for cut, cum in zip(cuts, cumulatives):
+                    x_pos = (cum / total) * W
+                    mid_x = (prev_x + x_pos) / 2
+                    ax.text(
+                        mid_x,
+                        -22,
+                        f"{cut}",
+                        fontsize=12,
+                        ha="center",
+                        va="top",
+                        color="#555",
+                        fontweight="bold",
+                    )
+                    prev_x = x_pos
 
-                ax.text(
-                    piece_start_x,
-                    H + 8,
-                    "0",
-                    fontsize=10,
-                    va="bottom",
-                    ha="center",
-                    color="#2FB6DE",
-                    fontweight="bold",
-                    rotation=45,
-                )
+            # ── Carrier lines + labels (top side) ──
+            if product_config.get("show_carriers", False):
+                piece_start_x = 0
+                for piece_idx, (cut, cum) in enumerate(zip(cuts, cumulatives)):
+                    piece_end_x = (cum / total) * W
+                    piece_w_px = piece_end_x - piece_start_x
+                    piece_len = cut
 
-                if piece_idx < len(carrier_distances):
-                    for carrier_pos in carrier_distances[piece_idx]:
-                        x_carrier = (
-                            piece_start_x + (carrier_pos / piece_len) * piece_w_px
-                        )
-                        ax.plot(
-                            [x_carrier, x_carrier],
-                            [0, H],
-                            color="#2FB6DE",
-                            linewidth=1.4,
-                            linestyle="--",
-                            zorder=4,
-                            alpha=0.85,
-                        )
-                        ax.text(
-                            x_carrier,
-                            H + 8,
-                            f"{carrier_pos}",
-                            fontsize=10,
-                            va="bottom",
-                            ha="center",
-                            color="#2FB6DE",
-                            fontweight="bold",
-                            rotation=45,
-                        )
+                    ax.text(
+                        piece_start_x,
+                        H + 8,
+                        "0",
+                        fontsize=10,
+                        va="bottom",
+                        ha="center",
+                        color="#2FB6DE",
+                        fontweight="bold",
+                        rotation=45,
+                    )
 
-                piece_start_x = piece_end_x
+                    if piece_idx < len(carrier_distances):
+                        for carrier_pos in carrier_distances[piece_idx]:
+                            x_carrier = (
+                                piece_start_x + (carrier_pos / piece_len) * piece_w_px
+                            )
+                            ax.plot(
+                                [x_carrier, x_carrier],
+                                [0, H],
+                                color="#2FB6DE",
+                                linewidth=1.4,
+                                linestyle="--",
+                                zorder=4,
+                                alpha=0.85,
+                            )
+                            ax.text(
+                                x_carrier,
+                                H + 8,
+                                f"{carrier_pos}",
+                                fontsize=10,
+                                va="bottom",
+                                ha="center",
+                                color="#2FB6DE",
+                                fontweight="bold",
+                                rotation=45,
+                            )
 
-    # ── Product-specific extras ──
-    extras = product_config.get("extras")
-    if extras:
-        extras(ax, row, W, H, total)
+                    piece_start_x = piece_end_x
 
-    # ── Width annotation ──
-    ax.annotate(
-        "",
-        xy=(W, H + 45),
-        xytext=(0, H + 45),
-        arrowprops=dict(arrowstyle="<->", color="#333", lw=1.2),
-    )
-    ax.text(
-        W / 2,
-        H + 50,
-        f"Width: {width} mm",
-        ha="center",
-        va="bottom",
-        fontsize=10,
-        color="#333",
-        fontweight="bold",
-    )
+        # ── Product-specific extras ──
+        extras = product_config.get("extras")
+        if extras:
+            extras(ax, row, W, H, total)
 
-    # ── Height annotation ──
-    ax.annotate(
-        "",
-        xy=(-80, H),
-        xytext=(-80, 0),
-        arrowprops=dict(arrowstyle="<->", color="#333", lw=1.2),
-    )
-    ax.text(
-        -90,
-        H / 2,
-        f"Height: {height} mm",
-        ha="right",
-        va="center",
-        fontsize=12,
-        color="#333",
-        fontweight="bold",
-        rotation=90,
-    )
-
-    # ── Legend ──
-    legend_elements = [
-        Line2D(
-            [0],
-            [0],
-            color=bar_color,
-            linewidth=1.5,
-            label=common_vars.get("product", "Profile"),
-        ),
-    ]
-    if product_config.get("show_joints", False):
-        legend_elements.append(
-            Line2D([0], [0], color="#e63946", linewidth=1.8, label="Joint Line"),
+        # ── Width annotation ──
+        ax.annotate(
+            "",
+            xy=(W, H + 45),
+            xytext=(0, H + 45),
+            arrowprops=dict(arrowstyle="<->", color="#333", lw=1.2),
         )
-    if product_config.get("show_carriers", False):
-        legend_elements.append(
+        ax.text(
+            W / 2,
+            H + 50,
+            f"Width: {width} mm",
+            ha="center",
+            va="bottom",
+            fontsize=10,
+            color="#333",
+            fontweight="bold",
+        )
+
+        # ── Height annotation ──
+        ax.annotate(
+            "",
+            xy=(-80, H),
+            xytext=(-80, 0),
+            arrowprops=dict(arrowstyle="<->", color="#333", lw=1.2),
+        )
+        ax.text(
+            -90,
+            H / 2,
+            f"Height: {height} mm",
+            ha="right",
+            va="center",
+            fontsize=12,
+            color="#333",
+            fontweight="bold",
+            rotation=90,
+        )
+
+        # ── Legend ──
+        legend_elements = [
             Line2D(
                 [0],
                 [0],
-                color="#2FB6DE",
-                linewidth=1.4,
-                linestyle="--",
-                label="Carrier",
+                color=bar_color,
+                linewidth=1.5,
+                # label=common_vars.get('product', ""फ्लूटेड प्रोफाइल""),
+                label="फ्लूटेड प्रोफाइल"
+            ),
+        ]
+        if product_config.get("show_joints", False):
+            legend_elements.append(
+                Line2D([0], [0], color="#e63946", linewidth=1.8, label="जोड़ रेखा"),
             )
-        )
-    if product_config.get("show_endcaps", False):
-        legend_elements.append(
-            Patch(facecolor="#F7E301", edgecolor="#c4b800", label="Endcap")
-        )
-    legend_extras = product_config.get("legend_extras", [])
-    legend_elements += legend_extras
+        if product_config.get("show_carriers", False):
+            legend_elements.append(
+                Line2D(
+                    [0],
+                    [0],
+                    color="#2FB6DE",
+                    linewidth=1.4,
+                    linestyle="--",
+                    label="कैरियर",
+                )
+            )
+        if product_config.get("show_endcaps", False):
+            legend_elements.append(
+                Patch(facecolor="#F7E301", edgecolor="#c4b800", label="एंडकैप")
+            )
+        legend_extras = product_config.get("legend_extras", [])
+        legend_elements += legend_extras
 
-    ax.legend(
-        handles=legend_elements,
-        loc="upper right",
-        fontsize=12,
-        frameon=True,
-        framealpha=0.9,
-        edgecolor="#ccc",
-        facecolor="white",
-        markerscale=2,
-        handlelength=2.5,
-        handleheight=1.5,
-    )
+        # devanagari_font = font_manager.FontProperties(
+        #     family=["Arial Unicode MS"],#, "Nirmala UI", "Arial Unicode MS"],
+        #     weight="bold" if bold else "normal",
+        #     size=size
+        # )
+        ax.legend(
+            handles=legend_elements,
+            loc="upper right",
+            fontsize=12,
+            frameon=True,
+            framealpha=0.9,
+            edgecolor="#ccc",
+            facecolor="white",
+            markerscale=2,
+            handlelength=2.5,
+            handleheight=1.5,
+            # prop=devanagari_font
+        )
 
     plt.tight_layout(pad=0.5)
     buf = BytesIO()

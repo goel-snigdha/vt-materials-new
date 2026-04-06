@@ -9,6 +9,7 @@ from modules.profile_calculators.fluted import FlutedCalculator
 from modules.profile_calculators.grille import GrilleCalculator
 from modules.profile_calculators.slouvers import SLouverCalculator
 from modules.profile_calculators.rectangular import RectangularCalculator
+from modules.profile_calculators.cnc_sheets import CNCSheetCalculator
 from utils import get_pitch, parse_cuts, validate_required_fields
 
 PRODUCTS = [
@@ -20,6 +21,7 @@ PRODUCTS = [
     # 'C-Louvers',
     "Rectangular Louvers",
     "Beam C-Channel",
+    "CNC Sheets"
 ]
 CALCULATOR_MAPPING = {
     "Grille 2550": GrilleCalculator,
@@ -30,6 +32,7 @@ CALCULATOR_MAPPING = {
     # "C-Louvers": CLouverCalculator,
     "Rectangular Louvers": RectangularCalculator,
     "Beam C-Channel": BeamCCalculator,
+    "CNC Sheets": CNCSheetCalculator
 }
 # PRODUCT_INPUT_VALIDATOR = {
 #     "Grille 2550": lambda df: GrilleCalculator.validate_input,
@@ -137,44 +140,64 @@ def run(product, project_title, **kwargs):
             st.error("Some required fields are empty. Please re-submit")
             return
 
-        valid, cut_summary = parse_cuts(vars["areas"])
+        if vars["product"] in [
+            "Grille 2550",
+            "Aerofoil",
+            "Cottal",
+            "Fluted",
+            "S-Louvers",
+            "Rectangular Louvers",
+        ]:
 
-        if valid:
+            valid, cut_summary = parse_cuts(vars["areas"])
+
+            if valid:
+
+                vars["areas"]["cut_summary"] = cut_summary
+
+                if required and valid:
+                    st.badge(
+                        f'Successfully submitted. Processing {len(vars["areas"])} row(s).',
+                        color="yellow",
+                    )
+
+                vars["areas"]["width"] = vars["areas"]["width"].astype(int)
+                vars["areas"]["height"] = vars["areas"]["height"].astype(int)
+                vars["areas"]["qty_areas"] = vars["areas"]["qty_areas"].astype(int)
+
+                vars["areas"]["single_division_length"] = np.where(
+                    vars["areas"]["orientation"] == "Horizontal",
+                    vars["areas"]["width"],
+                    vars["areas"]["height"],
+                )
+                vars["areas"]["perpendicular_length"] = np.where(
+                    vars["areas"]["orientation"] == "Horizontal",
+                    vars["areas"]["height"],
+                    vars["areas"]["width"],
+                )
+                vars["areas"]["divisions"] = np.ceil(
+                    vars["areas"]["perpendicular_length"] / vars["pitch"]
+                ).astype(int)
+                vars["areas"]["total_product_length"] = (
+                    vars["areas"]["single_division_length"] * vars["areas"]["divisions"]
+                ) / 1000
+                vars["areas"]["area_sqft"] = (
+                    vars["areas"]["width"] * vars["areas"]["height"]
+                ) / 92903.04
+
+        else:
+
             vars["areas"]["width"] = vars["areas"]["width"].astype(int)
             vars["areas"]["height"] = vars["areas"]["height"].astype(int)
             vars["areas"]["qty_areas"] = vars["areas"]["qty_areas"].astype(int)
-            vars["areas"]["cut_summary"] = cut_summary
-
-            if required and valid:
-                st.badge(
-                    f'Successfully submitted. Processing {len(vars["areas"])} row(s).',
-                    color="yellow",
-                )
-
-            vars["areas"]["single_division_length"] = np.where(
-                vars["areas"]["orientation"] == "Horizontal",
-                vars["areas"]["width"],
-                vars["areas"]["height"],
-            )
-            vars["areas"]["perpendicular_length"] = np.where(
-                vars["areas"]["orientation"] == "Horizontal",
-                vars["areas"]["height"],
-                vars["areas"]["width"],
-            )
-            vars["areas"]["divisions"] = np.ceil(
-                vars["areas"]["perpendicular_length"] / vars["pitch"]
-            ).astype(int)
-            vars["areas"]["total_product_length"] = (
-                vars["areas"]["single_division_length"] * vars["areas"]["divisions"]
-            ) / 1000
             vars["areas"]["area_sqft"] = (
                 vars["areas"]["width"] * vars["areas"]["height"]
             ) / 92903.04
 
-            calculator = product_class(vars)
-            results = calculator.run()
+        calculator = product_class(vars)
+        results = calculator.run()
 
-            handle_conversion(product, results, common_vars)
+        handle_conversion(product, results, common_vars)
     post_process(common_vars)
 
 
@@ -294,6 +317,10 @@ def main():
         pitch = get_pitch(product, {"louver_size": louver_size})
 
         run(product, project_title, pitch=pitch, louver_size=louver_size)
+
+    elif product == "CNC Sheets":
+
+        run(product, project_title)
 
     # elif product == "Beam C-Channel":
     #     pipe_grade = st.selectbox("Pipe Grade:", ["50x25", "25x12"], key="pipe_beamc")

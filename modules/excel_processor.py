@@ -199,8 +199,8 @@ from main import CALCULATOR_MAPPING
 def generate_offer_xl(start, offer_xl, offer_df, offer_df_cols, common_vars):
 
     product = "Louvers"
-    if offer_xl.cell(row=1, column=1).value == "Beam C-Channel":
-        product = "Beam C-Channel"
+    if common_vars['product'] in ["Beam C-Channel", "CNC Sheets"]:
+        product = common_vars['product']
 
     offer_xl, row_max, col_max = fill_offer_data(
         offer_xl, start, offer_df, offer_df_cols
@@ -373,19 +373,29 @@ def generate_installer_xl(inst_xl, area_data, common_vars):
         sc("A8", f"Window {s_no} | {area_name}", bold=True)
         sc("E15", common_vars.get("product", ""))
 
-        product_config = CALCULATOR_MAPPING[common_vars["product"]].generate_image(
-            row, common_vars
-        )
-        img = generate_window_image(row, common_vars, product_config)
-        xl_img = XLImage(img)
-        xl_img.width = 570
-        xl_img.height = 550
-        xl_img.anchor = "A21"
-        ws.add_image(xl_img)
+        if common_vars['product'] in [
+            "Grille 2550",
+            "Aerofoil",
+            "Cottal",
+            "Fluted",
+            "S-Louvers",
+            "Rectangular Louvers",
+        ]:
+            product_config = CALCULATOR_MAPPING[common_vars["product"]].generate_image(
+                row, common_vars
+            )
+
+            img = generate_window_image(row, common_vars, product_config)
+            xl_img = XLImage(img)
+            xl_img.width = 570
+            xl_img.height = 550
+            xl_img.anchor = "A21"
+            ws.add_image(xl_img)
+
+            fill_cut_plan(ws, row["cut_plan"])
 
         sc("A61", common_vars.get("project_title", ""), bold=True)
         sc("A63", f"Window {s_no} | {area_name}", bold=True)
-        fill_cut_plan(ws, row["cut_plan"])
 
         xl_buf = BytesIO()
         wb.save(xl_buf)

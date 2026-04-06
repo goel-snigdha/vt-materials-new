@@ -7,25 +7,25 @@ import modules.profile_utils as profile_utils
 from modules.excel_utils import INV_COLUMNS, PIPE_MAPPER, COMMON_ACCESSORIES
 
 COTTAL_PRODUCTS = {
-    "85 mm": {
+    "85 mm":  {
         "PROFILE": ("CT-PR-02", "COTTAL PROFILE"),
         "START_PIECE": ("CT-SP-02", "COTTAL START PIECE"),
-        "COVERING_PIECE": ("CT-CP-02", "COTTAL COVERING PIECE"),
+        "COVERING_PIECE": ("CT-CP-02", "COTTAL COVERING PIECE")
     },
     "130 mm": {
         "PROFILE": ("CT-PR-02", "COTTAL PROFILE"),
         "START_PIECE": ("CT-SP-02", "COTTAL START PIECE"),
-        "COVERING_PIECE": ("CT-CP-02", "COTTAL COVERING PIECE"),
+        "COVERING_PIECE": ("CT-CP-02", "COTTAL COVERING PIECE")
     },
     "230 mm": {
         "PROFILE": ("CT-PR-02", "COTTAL PROFILE"),
         "START_PIECE": ("CT-SP-02", "COTTAL START PIECE"),
-        "COVERING_PIECE": ("CT-CP-02", "COTTAL COVERING PIECE"),
+        "COVERING_PIECE": ("CT-CP-02", "COTTAL COVERING PIECE")
     },
 }
 
 COTTAL_ACCESSORIES = {
-    "L_ANGLES": ("", "SELECT COTTAL L-ANGLES"),
+    "L_ANGLES":      ("", "SELECT COTTAL L-ANGLES"),
     "CORNER_PIECES": ("", "SELECT COTTAL CORNER PIECES"),
 }
 
@@ -39,23 +39,22 @@ CORNER_JOINT_TYPES = [
 
 def generate_offer_df(data):
     offer_df_cols = {
-        "s_no": {"type": "desc", "hide_if_zero": False},
-        "area_name": {"type": "desc", "hide_if_zero": False},
-        "orientation": {"type": "desc", "hide_if_zero": False},
-        "height": {"type": "desc", "hide_if_zero": False},
-        "width": {"type": "desc", "hide_if_zero": False},
-        "qty_areas": {"type": "desc", "hide_if_zero": False},
-        "area_sqft": {"type": "formula", "hide_if_zero": False},
-        "divisions": {"type": "formula", "hide_if_zero": False},
+        "s_no":                 {"type": "desc",    "hide_if_zero": False},
+        "area_name":            {"type": "desc",    "hide_if_zero": False},
+        "orientation":          {"type": "desc",    "hide_if_zero": False},
+        "height":               {"type": "desc",    "hide_if_zero": False},
+        "width":                {"type": "desc",    "hide_if_zero": False},
+        "qty_areas":            {"type": "desc",    "hide_if_zero": False},
+        "area_sqft":            {"type": "formula", "hide_if_zero": False},
+        "divisions":            {"type": "formula", "hide_if_zero": False},
         "total_product_length": {"type": "formula", "hide_if_zero": False},
+        "epdm_gasket_length":   {"type": "formula", "hide_if_zero": False},
     }
     offer_df = data[offer_df_cols.keys()].copy()
     return offer_df_cols, offer_df
 
 
-def generate_inventory_df(
-    data, pipe_grade, louver_size, stock_plan, corner_joints=None
-):
+def generate_inventory_df(data, pipe_grade, louver_size, stock_plan, corner_joints=None):
 
     all_inventory_rows = []
     sequence = 0
@@ -131,9 +130,7 @@ def generate_inventory_df(
             {
                 "Product Code": COMMON_ACCESSORIES["SELF_DRILLING_19MM"][0],
                 "Product Name": COMMON_ACCESSORIES["SELF_DRILLING_19MM"][1],
-                "Quantity": int(
-                    math.ceil(row["divisions"] * row["total_carrier_divisions"])
-                ),
+                "Quantity": int(math.ceil(row["divisions"] * row["total_carrier_divisions"])),
                 "UOM": "pcs",
             },
             {
@@ -166,16 +163,13 @@ def generate_inventory_df(
         sno = str(row.get("s_no", "")).strip()
         if sno in corner_map:
             joint_type = corner_map[sno]
-            additional_items.insert(
-                1,
-                {
-                    "Product Code": "",
-                    "Product Name": joint_type,
-                    "Quantity": 1,
-                    "UOM": "pcs",
-                    "Colour": "COLOURED",
-                },
-            )
+            additional_items.insert(1, {
+                "Product Code": "",
+                "Product Name": joint_type,
+                "Quantity": 1,
+                "UOM": "pcs",
+                "Colour": "COLOURED",
+            })
 
         row_items = profile_rows + additional_items
 
@@ -195,18 +189,10 @@ def generate_inventory_df(
     inv_data = (
         inv_data.sort_values("item_order")
         .groupby(
-            [
-                "Product Code",
-                "Product Name",
-                "Length",
-                "UOM",
-                "Colour",
-                "Finish",
-                "CNC Hole Distance",
-                "Remarks",
-            ],
+            ["Product Code", "Product Name", "Length", "UOM",
+             "Colour", "Finish", "CNC Hole Distance", "Remarks"],
             as_index=False,
-            sort=False,
+            sort=False
         )
         .agg({"Quantity": "sum", "item_order": "min"})
         .sort_values("item_order")
@@ -230,12 +216,7 @@ class CottalCalculator:
         if corner_df is None or len(corner_df.dropna(how="all")) == 0:
             return True
 
-        INVERSE_SIDE = {
-            "Top": "Bottom",
-            "Bottom": "Top",
-            "Left": "Right",
-            "Right": "Left",
-        }
+        INVERSE_SIDE = {"Top": "Bottom", "Bottom": "Top", "Left": "Right", "Right": "Left"}
         VALID_CORNER_VERTICAL = {"Left", "Right"}
         VALID_CORNER_HORIZONTAL = {"Top", "Bottom"}
 
@@ -258,16 +239,12 @@ class CottalCalculator:
 
             # Window 1 and 2 cannot be the same
             if w1 == w2:
-                st.warning(
-                    f"Corner Joint Row {idx + 1}: Window 1 and Window 2 cannot be the same window."
-                )
+                st.warning(f"Corner Joint Row {idx + 1}: Window 1 and Window 2 cannot be the same window.")
                 return False
 
             # Direction must be filled
             if not dir1 or dir1 in ("", "nan", "None"):
-                st.warning(
-                    f"Corner Joint Row {idx + 1}: Direction on Window 1 is required."
-                )
+                st.warning(f"Corner Joint Row {idx + 1}: Direction on Window 1 is required.")
                 return False
 
             # Joint type must be filled
@@ -278,35 +255,24 @@ class CottalCalculator:
             w1_row = area_df[area_df["s_no"].astype(str) == w1].iloc[0]
             w2_row = area_df[area_df["s_no"].astype(str) == w2].iloc[0]
             w1_orient = str(w1_row.get("orientation", "")).strip()
-            w2_orient = str(w2_row.get("orientation", "")).strip()
 
             # Direction valid for window 1 orientation only
             if w1_orient == "Vertical" and dir1 not in VALID_CORNER_VERTICAL:
-                st.warning(
-                    f"Corner Joint Row {idx + 1}: Direction '{dir1}' not valid for Vertical Window 1. Use Left or Right."
-                )
+                st.warning(f"Corner Joint Row {idx + 1}: Direction '{dir1}' not valid for Vertical Window 1. Use Left or Right.")
                 return False
             if w1_orient == "Horizontal" and dir1 not in VALID_CORNER_HORIZONTAL:
-                st.warning(
-                    f"Corner Joint Row {idx + 1}: Direction '{dir1}' not valid for Horizontal Window 1. Use Top or Bottom."
-                )
+                st.warning(f"Corner Joint Row {idx + 1}: Direction '{dir1}' not valid for Horizontal Window 1. Use Top or Bottom.")
                 return False
 
-            # Same single_division_length check
-            w1_sdl = (
-                w1_row.get("width")
-                if w1_orient == "Horizontal"
-                else w1_row.get("height")
-            )
-            w2_sdl = (
-                w2_row.get("width")
-                if w2_orient == "Horizontal"
-                else w2_row.get("height")
-            )
-            if int(w1_sdl) != int(w2_sdl):
-                st.warning(
-                    f"Corner Joint Row {idx + 1}: Windows '{w1}' and '{w2}' have different division lengths ({w1_sdl}mm vs {w2_sdl}mm)."
-                )
+            # Same single_division_length check: Top/Bottom joint → compare widths, Left/Right joint → compare heights
+            if dir1 in VALID_CORNER_HORIZONTAL:
+                w1_sdl = w1_row.get("width")
+                w2_sdl = w2_row.get("width")
+            else:
+                w1_sdl = w1_row.get("height")
+                w2_sdl = w2_row.get("height")
+            if jt != "COTTAL CORNER 1 VTJ-21/24" and int(w1_sdl) != int(w2_sdl):
+                st.warning(f"Corner Joint Row {idx + 1}: Windows '{w1}' and '{w2}' have different lengths at the corner: ({w1_sdl}mm vs {w2_sdl}mm).")
                 return False
 
             # No duplicate sides per window
@@ -318,14 +284,10 @@ class CottalCalculator:
                 used_sides[w2] = set()
 
             if dir1 in used_sides[w1]:
-                st.warning(
-                    f"Corner Joint Row {idx + 1}: Window '{w1}' already has a corner on '{dir1}'."
-                )
+                st.warning(f"Corner Joint Row {idx + 1}: Window '{w1}' already has a corner on '{dir1}'.")
                 return False
             if dir2 in used_sides[w2]:
-                st.warning(
-                    f"Corner Joint Row {idx + 1}: Window '{w2}' already has a corner on '{dir2}'."
-                )
+                st.warning(f"Corner Joint Row {idx + 1}: Window '{w2}' already has a corner on '{dir2}'.")
                 return False
 
             used_sides[w1].add(dir1)
@@ -333,14 +295,10 @@ class CottalCalculator:
 
             # qty_areas must be 1 for both
             if int(w1_row.get("qty_areas", 1)) != 1:
-                st.warning(
-                    f"Corner Joint Row {idx + 1}: Window '{w1}' cannot have Similar Areas > 1."
-                )
+                st.warning(f"Corner Joint Row {idx + 1}: Window '{w1}' cannot have Similar Areas > 1.")
                 return False
             if int(w2_row.get("qty_areas", 1)) != 1:
-                st.warning(
-                    f"Corner Joint Row {idx + 1}: Window '{w2}' cannot have Similar Areas > 1."
-                )
+                st.warning(f"Corner Joint Row {idx + 1}: Window '{w2}' cannot have Similar Areas > 1.")
                 return False
 
         return True
@@ -361,46 +319,30 @@ class CottalCalculator:
 
     def get_data_input():
 
-        empty_df = pd.DataFrame(
-            {
-                "s_no": pd.Series(dtype="str"),
-                "area_name": pd.Series(dtype="str"),
-                "height": pd.Series(dtype="int"),
-                "width": pd.Series(dtype="int"),
-                "orientation": pd.Series(dtype="str"),
-                "qty_areas": pd.Series(dtype="int"),
-                "cut_summary": pd.Series(dtype="str"),
-            }
-        )
+        empty_df = pd.DataFrame({
+            "s_no":        pd.Series(dtype="str"),
+            "area_name":   pd.Series(dtype="str"),
+            "height":      pd.Series(dtype="int"),
+            "width":       pd.Series(dtype="int"),
+            "orientation": pd.Series(dtype="str"),
+            "qty_areas":   pd.Series(dtype="int"),
+            "cut_summary": pd.Series(dtype="str"),
+        })
 
         required_cols = [
-            "width",
-            "height",
-            "orientation",
-            "qty_areas",
-            "cut_summary",
+            "width", "height", "orientation", "qty_areas", "cut_summary",
         ]
 
         input_data = st.data_editor(
             data=empty_df,
             column_config={
-                "s_no": st.column_config.TextColumn("S. No", required=False),
-                "area_name": st.column_config.TextColumn("Area Name", required=False),
-                "width": st.column_config.NumberColumn(
-                    "Width (mm)", min_value=1, step=1, required=True
-                ),
-                "height": st.column_config.NumberColumn(
-                    "Height (mm)", min_value=1, step=1, required=True
-                ),
-                "orientation": st.column_config.SelectboxColumn(
-                    "Orientation", options=["Horizontal", "Vertical"], required=True
-                ),
-                "qty_areas": st.column_config.NumberColumn(
-                    "Similar Areas", min_value=1, step=1, required=True
-                ),
-                "cut_summary": st.column_config.TextColumn(
-                    "Cut Summary", required=True
-                ),
+                "s_no":        st.column_config.TextColumn("S. No",         required=False),
+                "area_name":   st.column_config.TextColumn("Area Name",     required=False),
+                "width":       st.column_config.NumberColumn("Width (mm)",   min_value=1, step=1, required=True),
+                "height":      st.column_config.NumberColumn("Height (mm)",  min_value=1, step=1, required=True),
+                "orientation": st.column_config.SelectboxColumn("Orientation", options=["Horizontal", "Vertical"], required=True),
+                "qty_areas":   st.column_config.NumberColumn("Similar Areas", min_value=1, step=1, required=True),
+                "cut_summary": st.column_config.TextColumn("Cut Summary",   required=True),
             },
             num_rows="dynamic",
         )
@@ -410,21 +352,20 @@ class CottalCalculator:
         st.markdown("")
 
         st.markdown("**Corner Joints** (optional)")
-        corner_df = pd.DataFrame(
-            {
-                "window_1": pd.Series(dtype="str"),
-                "window_2": pd.Series(dtype="str"),
-                "direction_on_window_1": pd.Series(dtype="str"),
-                "joint_type": pd.Series(dtype="str"),
-            }
-        )
+        corner_df = pd.DataFrame({
+            "window_1":              pd.Series(dtype="str"),
+            "window_2":              pd.Series(dtype="str"),
+            "direction_on_window_1": pd.Series(dtype="str"),
+            "joint_type":            pd.Series(dtype="str"),
+        })
         corner_input = st.data_editor(
             data=corner_df,
             column_config={
                 "window_1": st.column_config.TextColumn("Window 1 S.No"),
                 "window_2": st.column_config.TextColumn("Window 2 S.No"),
                 "direction_on_window_1": st.column_config.SelectboxColumn(
-                    "Direction on Window 1", options=["Top", "Bottom", "Left", "Right"]
+                    "Direction on Window 1",
+                    options=["Top", "Bottom", "Left", "Right"]
                 ),
                 "joint_type": st.column_config.SelectboxColumn(
                     "Joint Type",
@@ -471,8 +412,6 @@ class CottalCalculator:
             # st.image(str(img_path_base) + "/corner4.png", width=350)
             st.caption("COTTAL CORNER 1 VTJ-21/24")
 
-            # 2 and 4 for diff directions
-
         return input_data, required_cols, corner_input
 
     def generate_offer_df(data):
@@ -490,10 +429,10 @@ class CottalCalculator:
 
         info_lines = [
             (f"{divisions} Divisions", "#333", 12, True),
-            (f"@ {pitch} mm Pitch", "#333", 12, True),
-            ("", "#333", 12, False),
-            ("Breakdown", "#333", 12, False),
-            (f"{cut_summary_str}", "#333", 12, True),
+            (f"@ {pitch} mm Pitch",    "#333", 12, True),
+            ("",                       "#333", 12, False),
+            ("Breakdown",              "#333", 12, False),
+            (f"{cut_summary_str}",     "#333", 12, True),
         ]
 
         config = {
@@ -514,20 +453,27 @@ class CottalCalculator:
         # master_req = profile_utils.combine_req_plan(data["req_plan"])
         out = profile_utils.optimize_stock_v2(data)
         data["cut_plan"] = data.apply(
-            lambda row: profile_utils.build_window_cut_plan(row, out["bars"]), axis=1
+            lambda row: profile_utils.build_window_cut_plan(row, out["bars"]),
+            axis=1
         )
 
         # CARRIER
         data["carrier_distances"] = data.apply(
             lambda row: profile_utils.calculate_carrier_distances(row["cut_summary"]),
-            axis=1,
+            axis=1
         )
         data["total_carrier_divisions"] = data["carrier_distances"].apply(
             lambda x: sum(len(sublist) for sublist in x)
         )
         data["total_carrier_length"] = data.apply(
             lambda row: row["total_carrier_divisions"] * row["perpendicular_length"],
-            axis=1,
+            axis=1
+        )
+
+        # ACCS
+        data["epdm_gasket_length"] = data.apply(
+            lambda row: int(math.ceil(row["total_product_length"])),
+            axis=1
         )
 
         offer_df_cols, offer_df = generate_offer_df(data)
