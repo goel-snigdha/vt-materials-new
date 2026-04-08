@@ -160,20 +160,21 @@ RECT_EC_FIXING = [
 
 
 def get_xl_templates(product, dir):
-    path = f"reference_xls/{dir}_templates"
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    path = os.path.join(base_dir, "..", "reference_xls", f"{dir}_templates")
     XL_TEMPLATES = {
-        "Grille 2550": f"{path}/grille.xlsx",
-        "Cottal": f"{path}/cottal.xlsx",
-        "Fluted": f"{path}/fluted.xlsx",
-        "Aerofoil-C-Channel": f"{path}/aerofoil_c_channel.xlsx",
-        "Aerofoil-Fringe End Caps": f"{path}/aerofoil_endcap.xlsx",
-        "Aerofoil-MS Rod/Slot Cut Pipe": f"{path}/aerofoil_slot_pipe.xlsx",
-        "Aerofoil-D-Wall Bracket": f"{path}/aerofoil_d_bracket.xlsx",
-        "Aerofoil-Moveable (Manual)": f"{path}/aerofoil_manual_moveable.xlsx",
-        "S-Louvers": f"{path}/s_louver.xlsx",
-        "Rectangular Louvers": f"{path}/rectangular.xlsx",
-        "Beam C-Channel": f"{path}/beam_c_channel.xlsx",
-        "CNC Sheets": f"{path}/cnc_sheets.xlsx",
+        "Grille 2550": os.path.join(path, "grille.xlsx"),
+        "Cottal": os.path.join(path, "cottal.xlsx"),
+        "Fluted": os.path.join(path, "fluted.xlsx"),
+        "Aerofoil-C-Channel": os.path.join(path, "aerofoil_c_channel.xlsx"),
+        "Aerofoil-Fringe End Caps": os.path.join(path, "aerofoil_endcap.xlsx"),
+        "Aerofoil-MS Rod/Slot Cut Pipe": os.path.join(path, "aerofoil_slot_pipe.xlsx"),
+        "Aerofoil-D-Wall Bracket": os.path.join(path, "aerofoil_d_bracket.xlsx"),
+        "Aerofoil-Moveable (Manual)": os.path.join(path, "aerofoil_manual_moveable.xlsx"),
+        "S-Louvers": os.path.join(path, "s_louver.xlsx"),
+        "Rectangular Louvers": os.path.join(path, "rectangular.xlsx"),
+        "Beam C-Channel": os.path.join(path, "beam_c_channel.xlsx"),
+        "CNC Sheets": os.path.join(path, "cnc_sheets.xlsx"),
     }
     return XL_TEMPLATES[product]
 
