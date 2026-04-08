@@ -452,7 +452,7 @@ def convert(product, results, common_vars):
     accs_xl = inventory_wb["ACCESSORIES"]
     accs_xl.sheet_state = "hidden"
 
-    inst_template = "reference_xls/template.xlsx"
+    inst_template = "reference_xls/installer_xl.xlsx"
     # inst_wb = openpyxl.load_workbook(inst_template, data_only=False)
     # inst_xl = inst_wb.worksheets[0]
     inst_output = generate_installer_xl(inst_template, area_data, common_vars)
