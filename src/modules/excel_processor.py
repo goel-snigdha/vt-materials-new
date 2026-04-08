@@ -1,4 +1,5 @@
 from io import BytesIO
+import os
 from datetime import date
 from openpyxl import load_workbook
 
@@ -445,7 +446,11 @@ def convert(product, results, common_vars):
     # start = 3
     # carrier_xl = generate_accessories_xl(product, start, carrier_xl, results)
 
-    inv_template = "reference_xls/inventory_xl.xlsx"
+    inv_template = os.path.join(
+        os.path.dirname(
+            os.path.abspath(__file__)
+        ), "..", "reference_xls", "inventory_xl.xlsx"
+    )
     inventory_wb = openpyxl.load_workbook(inv_template, data_only=False)
     inventory_xl = inventory_wb.worksheets[0]
     inventory_xl = generate_inventory_xl(inventory_xl, inventory_df)
