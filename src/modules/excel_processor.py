@@ -7,6 +7,15 @@ import openpyxl
 from openpyxl.worksheet.datavalidation import DataValidation
 from openpyxl.drawing.image import Image as XLImage
 
+from modules.profile_calculators.aerofoil import AerofoilCalculator
+from modules.profile_calculators.beamc import BeamCCalculator
+from modules.profile_calculators.cottal import CottalCalculator
+from modules.profile_calculators.fluted import FlutedCalculator
+from modules.profile_calculators.grille import GrilleCalculator
+from modules.profile_calculators.slouvers import SLouverCalculator
+from modules.profile_calculators.rectangular import RectangularCalculator
+from modules.profile_calculators.cnc_sheets import CNCSheetCalculator
+
 from modules.excel_utils import (
     BLACK_GYPSUM,
     COTTAL_CORNERS,
@@ -25,7 +34,18 @@ from modules.excel_utils import (
     set_cell,
     fill_offer_data,
 )
-from main import CALCULATOR_MAPPING
+
+CALCULATOR_MAPPING = {
+    "Grille 2550": GrilleCalculator,
+    "Aerofoil": AerofoilCalculator,
+    "Cottal": CottalCalculator,
+    "Fluted": FlutedCalculator,
+    "S-Louvers": SLouverCalculator,
+    # "C-Louvers": CLouverCalculator,
+    "Rectangular Louvers": RectangularCalculator,
+    "Beam C-Channel": BeamCCalculator,
+    "CNC Sheets": CNCSheetCalculator
+}
 
 
 # def generate_profile_xl(start, profile_xl, results):

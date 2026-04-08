@@ -178,7 +178,6 @@ def get_xl_templates(product, dir):
     }
     return XL_TEMPLATES[product]
 
-
 def value(series, column_name, qty_windows=1):
     if column_name in NON_NUMERIC_COLS:
         return series[column_name]
