@@ -24,7 +24,7 @@ from modules.excel_utils import (
     set_cell,
     fill_offer_data,
 )
-from main import CALCULATOR_MAPPING
+from src.main import CALCULATOR_MAPPING
 
 
 # def generate_profile_xl(start, profile_xl, results):
