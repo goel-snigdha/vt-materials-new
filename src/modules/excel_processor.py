@@ -7,6 +7,7 @@ import openpyxl
 from openpyxl.worksheet.datavalidation import DataValidation
 from openpyxl.drawing.image import Image as XLImage
 
+from src.reference_xls.templates_data import get_template
 from modules.profile_calculators.aerofoil import AerofoilCalculator
 from modules.profile_calculators.beamc import BeamCCalculator
 from modules.profile_calculators.cottal import CottalCalculator
@@ -466,22 +467,14 @@ def convert(product, results, common_vars):
     # start = 3
     # carrier_xl = generate_accessories_xl(product, start, carrier_xl, results)
 
-    inv_template = os.path.join(
-        os.path.dirname(
-            os.path.abspath(__file__)
-        ), "..", "reference_xls", "inventory_xl.xlsx"
-    )
+    inv_template = get_template('inventory_xl.xlsx')
     inventory_wb = openpyxl.load_workbook(inv_template, data_only=False)
     inventory_xl = inventory_wb.worksheets[0]
     inventory_xl = generate_inventory_xl(inventory_xl, inventory_df)
     accs_xl = inventory_wb["ACCESSORIES"]
     accs_xl.sheet_state = "hidden"
 
-    inst_template = os.path.join(
-        os.path.dirname(
-            os.path.abspath(__file__)
-        ), "..", "reference_xls", "installer_xl.xlsx"
-    )
+    inst_template = get_template('installer_xl.xlsx')
     # inst_wb = openpyxl.load_workbook(inst_template, data_only=False)
     # inst_xl = inst_wb.worksheets[0]
     inst_output = generate_installer_xl(inst_template, area_data, common_vars)
