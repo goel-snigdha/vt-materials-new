@@ -23,6 +23,7 @@ class AerofoilMoveable:
         self.af_type = common_vars["af_type"]
         self.pitch = common_vars["pitch"]
 
+    @staticmethod
     def generate_image(row, common_vars):
 
         pitch = common_vars.get("pitch", "")

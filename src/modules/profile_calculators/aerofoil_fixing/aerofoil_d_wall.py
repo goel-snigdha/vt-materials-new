@@ -14,6 +14,7 @@ class AerofoilDWall:
     def __init__(self, common_vars):
         self.af_type = common_vars["af_type"]
 
+    @staticmethod
     def generate_image(row, common_vars):
         from matplotlib.patches import Rectangle as MplRect
 

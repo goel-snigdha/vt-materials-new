@@ -384,6 +384,7 @@ class CottalCalculator:
 
         return validator
 
+    @staticmethod
     def get_data_input(**kwargs):
 
         empty_df = pd.DataFrame({
@@ -485,6 +486,7 @@ class CottalCalculator:
     def generate_offer_df(data):
         return generate_offer_df(data)
 
+    @staticmethod
     def generate_image(row, common_vars):
 
         pitch = common_vars.get("pitch", "")

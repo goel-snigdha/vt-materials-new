@@ -167,6 +167,7 @@ class SLouverCalculator:
         self.pitch = vars["pitch"]
         self.areas = vars["areas"]
 
+    @staticmethod
     def get_data_input(**kwargs):
 
         empty_df = pd.DataFrame(
@@ -215,6 +216,7 @@ class SLouverCalculator:
 
         return input_data, required_cols
 
+    @staticmethod
     def generate_image(row, common_vars):
 
         divisions = row["divisions"]

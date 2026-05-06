@@ -39,6 +39,7 @@ class AerofoilCalculator:
         self.af_type = vars.get("af_type", "AF100")
         self.fixing_method = vars.get("fixing_method", None)
 
+    @staticmethod
     def get_data_input(**kwargs):
 
         af_type = kwargs.get("af_type", "AF100")
@@ -126,6 +127,7 @@ class AerofoilCalculator:
             return AerofoilCalculator.validate_input(row, idx)
         return validator
 
+    @staticmethod
     def generate_image(row, common_vars):
         fixing_method = common_vars.get("fixing_method", None)
 

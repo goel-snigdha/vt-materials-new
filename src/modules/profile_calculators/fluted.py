@@ -429,6 +429,7 @@ class FlutedCalculator:
 
         return validator
 
+    @staticmethod
     def get_data_input(**kwargs):
 
         empty_df = pd.DataFrame(
@@ -508,6 +509,7 @@ class FlutedCalculator:
 
         return input_data, required_cols, corner_input
 
+    @staticmethod
     def generate_image(row, common_vars):
 
         pitch = common_vars.get("pitch", "")

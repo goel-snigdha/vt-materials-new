@@ -265,6 +265,7 @@ class GrilleCalculator:
 
         return True
 
+    @staticmethod
     def get_data_input(**kwargs):
 
         empty_df = pd.DataFrame(
@@ -399,6 +400,7 @@ class GrilleCalculator:
 
     #     st.badge(f"Cut plan generated with {used_pct}% efficiency", color="green")
 
+    @staticmethod
     def generate_image(row, common_vars):
 
         pitch = common_vars["pitch"]

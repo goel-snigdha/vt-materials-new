@@ -9,6 +9,7 @@ class AerofoilMSRod:
     def __init__(self, common_vars):
         self.af_type = common_vars["af_type"]
 
+    @staticmethod
     def generate_image(row, common_vars):
 
         pitch = common_vars.get("pitch", "")

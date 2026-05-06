@@ -111,6 +111,7 @@ class BeamCCalculator:
         self.areas = vars["areas"]
         self.pipe_grade = vars["pipe_grade"]
 
+    @staticmethod
     def get_data_input(**kwargs):
 
         empty_df = pd.DataFrame({

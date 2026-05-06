@@ -59,6 +59,7 @@ class CNCSheetCalculator:
 
         return True
 
+    @staticmethod
     def get_data_input(**kwargs):
 
         empty_df = pd.DataFrame(
@@ -97,6 +98,7 @@ class CNCSheetCalculator:
 
         return input_data, required_cols
 
+    @staticmethod
     def generate_image(row, common_vars):
 
         return {}
