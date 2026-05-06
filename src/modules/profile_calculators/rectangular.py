@@ -88,21 +88,23 @@ def generate_inventory_df(self, data, stock_plan):
 
     all_inventory_rows = []
 
-    for _, row in data.iterrows():
-        sequence = 0
+    section_code, section_name = RECTANGULAR_SECTION_MAPPER[self.louver_size]
+    profile_rows = [
+        {
+            "Product Code": section_code,
+            "Product Name": section_name,
+            "Length": item["length"],
+            "Quantity": item["qty"],
+            "UOM": "m",
+            "item_order": i,
+        }
+        for i, item in enumerate(sorted(stock_plan, key=lambda x: x["length"], reverse=True))
+    ]
+    all_inventory_rows.extend(profile_rows)
 
-        profile_rows = []
-        for item in stock_plan:
-            section_code, section_name = RECTANGULAR_SECTION_MAPPER[self.louver_size]
-            profile_rows.append(
-                {
-                    "Product Code": section_code,
-                    "Product Name": section_name,
-                    "Length": item["length"],
-                    "Quantity": item["qty"],
-                    "UOM": "m",
-                }
-            )
+    sequence = len(profile_rows)
+
+    for _, row in data.iterrows():
 
         carrier_item = [
             {
@@ -113,8 +115,6 @@ def generate_inventory_df(self, data, stock_plan):
                 "UOM": "m",
             }
         ]
-
-        paint_qty = round(row["divisions"] / 50 * 2) / 2
 
         endcap_code, endcap_name = RECTANGULAR_ENDCAP_MAPPER[self.louver_size]
 
@@ -136,21 +136,9 @@ def generate_inventory_df(self, data, stock_plan):
                 "Quantity": row["rivet_cnt"],
                 "UOM": "pcs",
             },
-            {
-                "Product Code": COMMON_ACCESSORIES["PAINT"][0],
-                "Product Name": COMMON_ACCESSORIES["PAINT"][1],
-                "Quantity": paint_qty,
-                "UOM": "l",
-            },
-            {
-                "Product Code": COMMON_ACCESSORIES["PAINT_BRUSH"][0],
-                "Product Name": COMMON_ACCESSORIES["PAINT_BRUSH"][1],
-                "Quantity": 1,
-                "UOM": "pcs",
-            },
         ]
 
-        row_items = profile_rows + carrier_item + additional_items
+        row_items = carrier_item + additional_items
 
         for item in row_items:
             item["Quantity"] = int(item["Quantity"] * row["qty_areas"])
@@ -158,6 +146,11 @@ def generate_inventory_df(self, data, stock_plan):
             sequence += 1
 
         all_inventory_rows.extend(row_items)
+
+    all_inventory_rows += [
+        {"Product Code": COMMON_ACCESSORIES["PAINT"][0], "Product Name": COMMON_ACCESSORIES["PAINT"][1], "Quantity": 1, "UOM": "l", "item_order": sequence},
+        {"Product Code": COMMON_ACCESSORIES["PAINT_BRUSH"][0], "Product Name": COMMON_ACCESSORIES["PAINT_BRUSH"][1], "Quantity": 1, "UOM": "pcs", "item_order": sequence + 1},
+    ]
 
     inv_data = (
         pd.DataFrame(all_inventory_rows)
@@ -183,6 +176,8 @@ def generate_inventory_df(self, data, stock_plan):
         .agg({"Quantity": "sum", "item_order": "min"})
         .sort_values(["item_order"])
         .drop(columns=["item_order"])
+        .reindex(columns=INV_COLUMNS)
+        .fillna("")
     )
 
     return inv_data
@@ -218,7 +213,7 @@ class RectangularCalculator:
 
         return True
 
-    def get_data_input():
+    def get_data_input(**kwargs):
 
         empty_df = pd.DataFrame(
             {
@@ -342,8 +337,7 @@ class RectangularCalculator:
             lambda row: row["divisions"] * ENDCAP_MULTIPLIER[row["endcaps"]], axis=1
         )
         data["rivet_distance"] = data.apply(
-            lambda row: profile_utils.calculate_carrier_distances(row["cut_summary"])
-            * row["divisions"],
+            lambda row: profile_utils.calculate_carrier_distances(row["cut_summary"]),
             axis=1,
         )
         data["rivets_per_division"] = data["rivet_distance"].apply(
@@ -352,7 +346,6 @@ class RectangularCalculator:
         data["rivet_cnt"] = data.apply(
             lambda row: row["rivets_per_division"] * row["divisions"], axis=1
         )
-
         offer_df_cols, offer_df = generate_offer_df(data)
         inventory_df = generate_inventory_df(self, data, out["stock_plan"])
 

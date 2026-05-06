@@ -329,7 +329,7 @@ Fallback               : Fast greedy if PuLP not installed
 """
 
 KERF = 5  # mm lost per cut
-STANDARD_LENGTHS = [2450, 3050, 3650, 4550]
+STANDARD_LENGTHS = [2450, 3050, 3250, 3650, 4550]
 
 
 # ──────────────────────────────────────────────
@@ -712,10 +712,10 @@ def cross_window_optimize(per_window_bars, stock_lengths, min_saving=200):
 #           f"(saved {stage1_waste - stage2_waste}mm)")
 
 #     # ── Build summary ──
-#     total_material  = sum(b["stock_length"] for b in all_bars)
-#     total_waste     = sum(b["waste"] for b in all_bars)
+#     total_material = sum(b["stock_length"] for b in all_bars)
+#     total_waste = sum(b["waste"] for b in all_bars)
 #     total_kerf_loss = sum(b["n_cuts"] * KERF for b in all_bars)
-#     efficiency      = (1 - total_waste / total_material) * 100 if total_material else 0
+#     efficiency = (1 - total_waste / total_material) * 100 if total_material else 0
 
 #     bar_counts = defaultdict(int)
 #     for b in all_bars:

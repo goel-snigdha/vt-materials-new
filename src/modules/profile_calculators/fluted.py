@@ -73,20 +73,22 @@ def generate_inventory_df(data, pipe_grade, stock_plan):
 
     all_inventory_rows = []
 
+    profile_rows = [
+        {
+            "Product Code": FLUTED_PRODUCTS["PROFILE"][0],
+            "Product Name": FLUTED_PRODUCTS["PROFILE"][1],
+            "Length": item["length"],
+            "Quantity": item["qty"],
+            "UOM": "m",
+            "item_order": i,
+        }
+        for i, item in enumerate(sorted(stock_plan, key=lambda x: x["length"], reverse=True))
+    ]
+    all_inventory_rows.extend(profile_rows)
+
+    sequence = len(profile_rows)
+
     for _, row in data.iterrows():
-
-        sequence = 0
-
-        profile_rows = [
-            {
-                "Product Code": FLUTED_PRODUCTS["PROFILE"][0],
-                "Product Name": FLUTED_PRODUCTS["PROFILE"][1],
-                "Length": item["length"],
-                "Quantity": item["qty"],
-                "UOM": "m",
-            }
-            for item in stock_plan
-        ]
 
         pipe_code, pipe_name = PIPE_MAPPER[pipe_grade]
 
@@ -129,19 +131,13 @@ def generate_inventory_df(data, pipe_grade, stock_plan):
                 "Quantity": int(math.ceil(row["total_carrier_length"] / 500)),
                 "UOM": "pcs",
             },
-            {
-                "Product Code": COMMON_ACCESSORIES["PAINT"][0],
-                "Product Name": COMMON_ACCESSORIES["PAINT"][1],
-                "Quantity": 0,
-                "UOM": "l",
-            },
         ]
 
         if row.get("total_frame_covering_length", 0) > 0:
             additional_items.append(
                 {
-                    "Product Code": row["frame_covering_type"],
-                    "Product Name": COVERING_CODE_MAP[row["frame_covering_type"]],
+                    "Product Code": COVERING_CODE_MAP[row["frame_covering_type"]],
+                    "Product Name": row["frame_covering_type"],
                     "Length": 3050,
                     "Quantity": int(
                         math.ceil(row["total_frame_covering_length"] / 3050)
@@ -162,7 +158,7 @@ def generate_inventory_df(data, pipe_grade, stock_plan):
                 },
             )
 
-        row_items = profile_rows + additional_items
+        row_items = additional_items
 
         for item in row_items:
             item["Quantity"] = int(item.get("Quantity", 0) * row["qty_areas"])
@@ -170,6 +166,11 @@ def generate_inventory_df(data, pipe_grade, stock_plan):
             sequence += 1
 
         all_inventory_rows.extend(row_items)
+
+    all_inventory_rows += [
+        {"Product Code": COMMON_ACCESSORIES["PAINT"][0], "Product Name": COMMON_ACCESSORIES["PAINT"][1], "Quantity": 1, "UOM": "l", "item_order": sequence},
+        {"Product Code": COMMON_ACCESSORIES["PAINT_BRUSH"][0], "Product Name": COMMON_ACCESSORIES["PAINT_BRUSH"][1], "Quantity": 1, "UOM": "pcs", "item_order": sequence + 1},
+    ]
 
     inv_data = (
         pd.DataFrame(all_inventory_rows)
@@ -195,6 +196,8 @@ def generate_inventory_df(data, pipe_grade, stock_plan):
         .agg({"Quantity": "sum", "item_order": "min"})
         .sort_values(["item_order"])
         .drop(columns=["item_order"])
+        .reindex(columns=INV_COLUMNS)
+        .fillna("")
     )
 
     return inv_data
@@ -426,7 +429,7 @@ class FlutedCalculator:
 
         return validator
 
-    def get_data_input():
+    def get_data_input(**kwargs):
 
         empty_df = pd.DataFrame(
             {

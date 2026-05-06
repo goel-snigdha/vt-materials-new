@@ -1,5 +1,4 @@
 from io import BytesIO
-import os
 from datetime import date
 from openpyxl import load_workbook
 
@@ -7,7 +6,7 @@ import openpyxl
 from openpyxl.worksheet.datavalidation import DataValidation
 from openpyxl.drawing.image import Image as XLImage
 
-from src.reference_xls.templates_data import get_template
+from reference_xls.templates_data import get_template
 from modules.profile_calculators.aerofoil import AerofoilCalculator
 from modules.profile_calculators.beamc import BeamCCalculator
 from modules.profile_calculators.cottal import CottalCalculator
@@ -34,6 +33,7 @@ from modules.excel_utils import (
     remove_zero_total_cols,
     set_cell,
     fill_offer_data,
+    sno_sort_key,
 )
 
 CALCULATOR_MAPPING = {
@@ -235,9 +235,8 @@ def generate_offer_xl(start, offer_xl, offer_df, offer_df_cols, common_vars):
         and col in offer_df.columns
         and offer_df[col].sum() == 0
     ]
-
     if zero_cols:
-        title_only = "Aerofoil Type" not in offer_df.columns
+        title_only = common_vars.get("product") != "Aerofoil"
         offer_xl, col_max = remove_zero_total_cols(
             offer_xl, zero_cols, col_max, title_only, offer_df_cols
         )
@@ -272,7 +271,7 @@ def generate_inventory_xl(inv_xl, inv_data):
         "BLACK GYPSUM DRYWALL SCREW": bs_dv,
         "L-ANGLE": la_dv,
     }
-    idx_to_col = {0: 1, 1: 2, 2: 3, 3: 7, 4: 8, 5: 9, 6: 10, 7: 11, 8: 4}
+    idx_to_col = {0: 1, 1: 2, 2: 3, 3: 4, 4: 7, 5: 8, 6: 9, 7: 10, 8: 11}
     curr = 4
 
     for _, item in inv_data.iterrows():
@@ -388,8 +387,10 @@ def generate_installer_xl(inst_xl, area_data, common_vars):
                 size=size,
             )
 
-        s_no = row.get("s_no", idx + 1)
-        area_name = row.get("area_name", "")
+        s_no_raw = row.get("s_no", "")
+        s_no = s_no_raw if s_no_raw and str(s_no_raw).strip() not in ("", "nan") else str(idx + 1)
+        area_name_raw = row.get("area_name", "")
+        area_name = area_name_raw if area_name_raw and str(area_name_raw).strip() not in ("", "nan") else ""
 
         sc("A6", common_vars.get("project_title", ""), bold=True)
         sc("A8", f"Window {s_no} | {area_name}", bold=True)
@@ -409,10 +410,15 @@ def generate_installer_xl(inst_xl, area_data, common_vars):
 
             img = generate_window_image(row, common_vars, product_config)
             xl_img = XLImage(img)
-            xl_img.width = 570
-            xl_img.height = 550
-            xl_img.anchor = "A21"
-            ws.add_image(xl_img)
+            # xl_img.width = 570
+            # xl_img.height = 550
+            # xl_img.width = 800
+            # xl_img.height = 770
+            # xl_img.width = 680
+            # xl_img.height = 660
+            xl_img.width = 620
+            xl_img.height = 600
+            ws.add_image(xl_img, "A21")
 
             fill_cut_plan(ws, row["cut_plan"])
 
@@ -437,17 +443,14 @@ def generate_installer_xl(inst_xl, area_data, common_vars):
 def convert(product, results, common_vars):
 
     area_data = results[0]
+    area_data = area_data.iloc[sorted(range(len(area_data)), key=lambda i: sno_sort_key(area_data["s_no"].iloc[i]))]
     offer_xl_cols = results[1]
     offer_df = results[2]
     inventory_df = results[3]
 
     ext = ""
     if product in ["Aerofoil"]:
-        if "Fixing Method" in results:
-            col = "Fixing Method"
-        else:
-            col = "Installation Method"
-        ext = "-" + results[col].iloc[0]
+        ext = "-" + common_vars['fixing_method']
 
     offer_template = get_xl_templates(product + ext, "offer")
     offer_wb = openpyxl.load_workbook(offer_template, data_only=False)
@@ -457,11 +460,11 @@ def convert(product, results, common_vars):
     offer_xl = generate_offer_xl(start, offer_xl, offer_df, offer_xl_cols, common_vars)
 
     # template = get_xl_templates(product + ext, "profile")
-    # wb = openpyxl.load_workbook(template)
+    # openpyxl.load_workbook(template)
 
     # profile_xl = wb.worksheets[0]
     # start = 5
-    # profile_xl = generate_profile_xl(start, profile_xl, results)
+    # profile_xl = generate_profile_xl(start, profile_xl, area_data)
 
     # carrier_xl = wb.worksheets[1]
     # start = 3
@@ -481,8 +484,8 @@ def convert(product, results, common_vars):
 
     if product in ["Aerofoil", "S-Louvers", "Rectangular Louvers", "Cottal"]:
         ext = ""
-        # if product == "Aerofoil":
-        #     ext = results["Aerofoil Type"].iloc[0]
+        if product == "Aerofoil":
+            ext = common_vars['af_type']
         if product in ["S-Louvers", "Rectangular Louvers", "Cottal"]:
             ext = common_vars["louver_size"]
 

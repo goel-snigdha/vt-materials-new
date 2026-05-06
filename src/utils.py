@@ -205,11 +205,13 @@ def arrow_safe(value):
     return value
 
 
-def parse_cuts(df):
+def parse_cuts(df, division_length_col=None):
     """
     Validates cut_summary for each row.
     Expected format: 1500,1500
     Returns list of cut arrays per row if valid, else False.
+    If division_length_col is provided, reads expected length from that column
+    instead of deriving it from orientation + width/height.
     """
 
     all_rows_cuts = []
@@ -227,7 +229,10 @@ def parse_cuts(df):
             return False
 
         # Determine required division length
-        division_length = width if orientation == "Horizontal" else height
+        if division_length_col and division_length_col in row.index:
+            division_length = int(row[division_length_col])
+        else:
+            division_length = width if orientation == "Horizontal" else height
 
         # Remove spaces
         cut_summary = str(cut_summary).replace(" ", "")

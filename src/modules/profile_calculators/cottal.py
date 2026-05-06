@@ -8,7 +8,7 @@ import modules.profile_utils as profile_utils
 from modules.excel_utils import INV_COLUMNS, PIPE_MAPPER, COMMON_ACCESSORIES, COVERING_OPTIONS, COVERING_CODE_MAP
 
 COTTAL_PRODUCTS = {
-    "85 mm":  {
+    "85 mm": {
         "PROFILE": ("CT-PR-02", "COTTAL PROFILE"),
         "START_PIECE": ("CT-SP-02", "COTTAL START PIECE"),
         "COVERING_PIECE": ("CT-CP-02", "COTTAL COVERING PIECE")
@@ -71,16 +71,16 @@ def calc_frame_row(row):
 
 def generate_offer_df(data):
     offer_df_cols = {
-        "s_no":                 {"type": "desc",    "hide_if_zero": False},
-        "area_name":            {"type": "desc",    "hide_if_zero": False},
-        "orientation":          {"type": "desc",    "hide_if_zero": False},
-        "height":               {"type": "desc",    "hide_if_zero": False},
-        "width":                {"type": "desc",    "hide_if_zero": False},
-        "qty_areas":            {"type": "desc",    "hide_if_zero": False},
-        "area_sqft":            {"type": "formula", "hide_if_zero": False},
-        "divisions":            {"type": "formula", "hide_if_zero": False},
+        "s_no": {"type": "desc",    "hide_if_zero": False},
+        "area_name": {"type": "desc",    "hide_if_zero": False},
+        "orientation": {"type": "desc",    "hide_if_zero": False},
+        "height": {"type": "desc",    "hide_if_zero": False},
+        "width": {"type": "desc",    "hide_if_zero": False},
+        "qty_areas": {"type": "desc",    "hide_if_zero": False},
+        "area_sqft": {"type": "formula", "hide_if_zero": False},
+        "divisions": {"type": "formula", "hide_if_zero": False},
         "total_product_length": {"type": "formula", "hide_if_zero": False},
-        "epdm_gasket_length":   {"type": "formula", "hide_if_zero": False},
+        "epdm_gasket_length": {"type": "formula", "hide_if_zero": False},
     }
     offer_df = data[offer_df_cols.keys()].copy()
     return offer_df_cols, offer_df
@@ -89,9 +89,45 @@ def generate_offer_df(data):
 def generate_inventory_df(data, pipe_grade, louver_size, stock_plan, corner_joints=None):
 
     all_inventory_rows = []
-    sequence = 0
 
     cottal_type = COTTAL_PRODUCTS[louver_size]
+
+    # Profile rows come from global stock_plan — add once, sorted desc by length
+    profile_rows = []
+    for i, item in enumerate(sorted(stock_plan, key=lambda x: x["length"], reverse=True)):
+        base_order = i * 3
+        profile_rows += [
+            {
+                "Product Code": cottal_type["PROFILE"][0],
+                "Product Name": cottal_type["PROFILE"][1],
+                "Length": item["length"],
+                "Quantity": item["qty"],
+                "UOM": "m",
+                "Colour": "COLOURED",
+                "item_order": base_order,
+            },
+            {
+                "Product Code": cottal_type["START_PIECE"][0],
+                "Product Name": cottal_type["START_PIECE"][1],
+                "Length": item["length"],
+                "Quantity": 1,
+                "UOM": "m",
+                "Colour": "COLOURED",
+                "item_order": base_order + 1,
+            },
+            {
+                "Product Code": cottal_type["COVERING_PIECE"][0],
+                "Product Name": cottal_type["COVERING_PIECE"][1],
+                "Length": item["length"],
+                "Quantity": 2,
+                "UOM": "m",
+                "Colour": "COLOURED",
+                "item_order": base_order + 2,
+            },
+        ]
+    all_inventory_rows.extend(profile_rows)
+
+    sequence = len(profile_rows)
 
     # Build set of window_1 s_nos that have corners and their joint types + direction
     corner_map = {}  # {s_no: (joint_type, direction)}
@@ -105,38 +141,7 @@ def generate_inventory_df(data, pipe_grade, louver_size, stock_plan, corner_join
 
     for _, row in data.iterrows():
 
-        profile_rows = []
-        for item in stock_plan:
-            profile_rows += [
-                {
-                    "Product Code": cottal_type["PROFILE"][0],
-                    "Product Name": cottal_type["PROFILE"][1],
-                    "Length": item["length"],
-                    "Quantity": item["qty"],
-                    "UOM": "m",
-                    "Colour": "COLOURED",
-                },
-                {
-                    "Product Code": cottal_type["START_PIECE"][0],
-                    "Product Name": cottal_type["START_PIECE"][1],
-                    "Length": item["length"],
-                    "Quantity": 1,
-                    "UOM": "m",
-                    "Colour": "COLOURED",
-                },
-                {
-                    "Product Code": cottal_type["COVERING_PIECE"][0],
-                    "Product Name": cottal_type["COVERING_PIECE"][1],
-                    "Length": item["length"],
-                    "Quantity": 2,
-                    "UOM": "m",
-                    "Colour": "COLOURED",
-                },
-            ]
-
         pipe_code, pipe_name = PIPE_MAPPER[pipe_grade]
-        paint_qty = round(row["divisions"] / 50 * 2) / 2
-        brush_qty = math.ceil(paint_qty)
 
         additional_items = [
             {
@@ -178,18 +183,6 @@ def generate_inventory_df(data, pipe_grade, louver_size, stock_plan, corner_join
                 "Quantity": int(math.ceil(row["total_carrier_length"] / 500)),
                 "UOM": "pcs",
             },
-            {
-                "Product Code": COMMON_ACCESSORIES["PAINT"][0],
-                "Product Name": COMMON_ACCESSORIES["PAINT"][1],
-                "Quantity": paint_qty,
-                "UOM": "l",
-            },
-            {
-                "Product Code": COMMON_ACCESSORIES["PAINT_BRUSH"][0],
-                "Product Name": COMMON_ACCESSORIES["PAINT_BRUSH"][1],
-                "Quantity": brush_qty,
-                "UOM": "pcs",
-            },
         ]
 
         # Add corner piece only for window_1 of each corner pair
@@ -218,7 +211,7 @@ def generate_inventory_df(data, pipe_grade, louver_size, stock_plan, corner_join
                 "Colour": "COLOURED",
             })
 
-        row_items = profile_rows + additional_items
+        row_items = additional_items
 
         for item in row_items:
             item["Quantity"] = int(item.get("Quantity", 0) * row["qty_areas"])
@@ -226,6 +219,11 @@ def generate_inventory_df(data, pipe_grade, louver_size, stock_plan, corner_join
             sequence += 1
 
         all_inventory_rows.extend(row_items)
+
+    all_inventory_rows += [
+        {"Product Code": COMMON_ACCESSORIES["PAINT"][0], "Product Name": COMMON_ACCESSORIES["PAINT"][1], "Quantity": 1, "UOM": "l", "item_order": sequence},
+        {"Product Code": COMMON_ACCESSORIES["PAINT_BRUSH"][0], "Product Name": COMMON_ACCESSORIES["PAINT_BRUSH"][1], "Quantity": 1, "UOM": "pcs", "item_order": sequence + 1},
+    ]
 
     inv_data = (
         pd.DataFrame(all_inventory_rows)
@@ -244,6 +242,8 @@ def generate_inventory_df(data, pipe_grade, louver_size, stock_plan, corner_join
         .agg({"Quantity": "sum", "item_order": "min"})
         .sort_values("item_order")
         .drop(columns=["item_order"])
+        .reindex(columns=INV_COLUMNS)
+        .fillna("")
     )
 
     return inv_data
@@ -384,7 +384,7 @@ class CottalCalculator:
 
         return validator
 
-    def get_data_input():
+    def get_data_input(**kwargs):
 
         empty_df = pd.DataFrame({
             "s_no":                pd.Series(dtype="str"),
@@ -463,31 +463,22 @@ class CottalCalculator:
         col1, col2, col3, col4 = st.columns(4)
         with col1:
             st.image(str(img_path_base) + "/corner1.png", width=275)
-            # st.caption("COTTAL CORNER 1 VTJ-21/24")
         with col2:
             st.image(str(img_path_base) + "/corner2.png", width=150)
-            # st.caption("COTTAL CORNER 2 VTJ-3A/24")
         with col3:
             st.image(str(img_path_base) + "/corner3.png", width=150)
-            # st.caption("COTTAL CORNER 3 VTJ-3B/24")
         with col4:
             st.image(str(img_path_base) + "/corner4.png", width=250)
-            # st.caption("COTTAL CORNER 4 VTJ-20/24")
 
         col1, col2, col3, col4 = st.columns(4)
         with col1:
-            # st.image(str(img_path_base) + "/corner1.png", width=150)
-            st.caption("COTTAL CORNER 2 VTJ-3A/24")
-
-        with col2:
-            # st.image(str(img_path_base) + "/corner2.png", width=150)
-            st.caption("COTTAL CORNER 3 VTJ-3B/24")
-        with col3:
-            # st.image(str(img_path_base) + "/corner3.png", width=225)
-            st.caption("COTTAL CORNER 4 VTJ-20/24")
-        with col4:
-            # st.image(str(img_path_base) + "/corner4.png", width=350)
             st.caption("COTTAL CORNER 1 VTJ-21/24")
+        with col2:
+            st.caption("COTTAL CORNER 2 VTJ-3A/24")
+        with col3:
+            st.caption("COTTAL CORNER 3 VTJ-3B/24")
+        with col4:
+            st.caption("COTTAL CORNER 4 VTJ-20/24")
 
         return input_data, required_cols, corner_input
 

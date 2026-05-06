@@ -49,6 +49,8 @@ PRODUCT_INPUT_VALIDATOR = {
     "S-Louver": lambda df, corner_df: SLouverCalculator.get_validator(df),
     "Fluted": lambda df, corner_df: FlutedCalculator.get_validator(df, corner_df),
     "Cottal": lambda df, corner_df: CottalCalculator.get_validator(df, corner_df),
+    "Rectangular Louvers": lambda df, corner_df: RectangularCalculator.validate_input,
+    "Aerofoil": lambda df, corner_df: AerofoilCalculator.get_validator(df),
 }
 
 
@@ -109,7 +111,7 @@ def run(product, project_title, **kwargs):
     vars["product"] = product
     vars["project_title"] = project_title
 
-    result = product_class.get_data_input()
+    result = product_class.get_data_input(**kwargs)
     if len(result) == 3:
         vars["areas"], required_cols, vars["corner_joints"] = result
     else:
@@ -149,7 +151,19 @@ def run(product, project_title, **kwargs):
             "Rectangular Louvers",
         ]:
 
-            valid, cut_summary = parse_cuts(vars["areas"])
+            division_length_col = None
+            if vars.get("fixing_method") == "MS Rod/Slot Cut Pipe":
+                vars["areas"]["effective_division_length"] = vars["areas"].apply(
+                    lambda r: (
+                        int(r["width"] if r["orientation"] == "Horizontal" else r["height"])
+                        - int(r.get("top_suspension", 0) or 0)
+                        - int(r.get("bottom_suspension", 0) or 0)
+                    ),
+                    axis=1,
+                )
+                division_length_col = "effective_division_length"
+
+            valid, cut_summary = parse_cuts(vars["areas"], division_length_col=division_length_col)
 
             if valid:
 
@@ -185,7 +199,7 @@ def run(product, project_title, **kwargs):
                     vars["areas"]["width"] * vars["areas"]["height"]
                 ) / 92903.04
 
-        else:
+        elif vars["product"] == "CNC Sheets":
 
             vars["areas"]["width"] = vars["areas"]["width"].astype(int)
             vars["areas"]["height"] = vars["areas"]["height"].astype(int)
@@ -193,6 +207,12 @@ def run(product, project_title, **kwargs):
             vars["areas"]["area_sqft"] = (
                 vars["areas"]["width"] * vars["areas"]["height"]
             ) / 92903.04
+
+        elif vars["product"] == "Beam C-Channel":
+
+            vars["areas"]["width"] = vars["areas"]["width"].astype(int)
+            vars["areas"]["length"] = vars["areas"]["length"].astype(int)
+            vars["areas"]["qty_areas"] = vars["areas"]["qty_areas"].astype(int)
 
         calculator = product_class(vars)
         results = calculator.run()
@@ -214,62 +234,41 @@ def main():
         pitch = get_pitch(product, {})
         run(product, project_title, pitch=pitch)
 
-    # elif product == "Aerofoil":
-    #     af_type = st.selectbox(
-    #         "Aerofoil type:",
-    #         [
-    #             "AF60",
-    #             "AF100",
-    #             "AF150",
-    #             "AF200",
-    #             "AF250",
-    #             "AF400",
-    #         ],
-    #     )
-    #     if af_type in ["AF250", "AF400"]:
-    #         installation = st.selectbox(
-    #             "Installation method:",
-    #             [
-    #                 "Fixed",
-    #                 # 'Moveable (Manual)',
-    #                 # 'Moveable (Motorized)'
-    #             ],
-    #         )
-    #     else:
-    #         installation = st.selectbox(
-    #             "Installation method:",
-    #             [
-    #                 "Fixed",
-    #                 "Moveable (Manual)",
-    #                 # 'Moveable (Motorized)'
-    #             ],
-    #         )
-    #     if installation == "Fixed":
-    #         fixing_method = st.selectbox(
-    #             "Fixing Method:",
-    #             [
-    #                 "Fringe End Caps",
-    #                 "C-Channel",
-    #                 "MS Rod/Slot Cut Pipe",
-    #                 "D-Wall Bracket",
-    #             ],
-    #         )
-    #         run(
-    #             product,
-    #             project_title,
-    #             num_windows,
-    #             af_type=af_type,
-    #             installation=installation,
-    #             fixing_method=fixing_method,
-    #         )
-    #     else:
-    #         run(
-    #             product,
-    #             project_title,
-    #             num_windows,
-    #             af_type=af_type,
-    #             installation=installation,
-    #         )
+    elif product == "Aerofoil":
+
+        pitch = get_pitch(product, {})
+
+        af_type = st.selectbox(
+            "Aerofoil type:",
+            [
+                "AF60",
+                "AF100",
+                "AF150",
+                "AF200",
+                "AF250",
+                "AF400",
+            ],
+        )
+
+        fixing_method = st.selectbox(
+            "Fixing Method:",
+            [
+                "Fringe End Caps",
+                "C-Channel",
+                "MS Rod/Slot Cut Pipe",
+                "D-Wall Bracket",
+                "Moveable (Manual)"
+            ],
+        )
+
+        run(
+            product,
+            project_title,
+            pitch=pitch,
+            af_type=af_type,
+            fixing_method=fixing_method,
+        )
+
     elif product == "Cottal":
 
         pipe_grade = st.selectbox("Pipe Grade:", ["50x25", "38x25"], key="pipe_cottal")
@@ -285,6 +284,7 @@ def main():
             pipe_grade=pipe_grade,
             louver_size=louver_size,
         )
+
     elif product == "Fluted":
 
         pipe_grade = st.selectbox("Pipe Grade:", ["50x25", "38x25"], key="pipe_fluted")
@@ -322,9 +322,14 @@ def main():
 
         run(product, project_title)
 
-    # elif product == "Beam C-Channel":
-    #     pipe_grade = st.selectbox("Pipe Grade:", ["50x25", "25x12"], key="pipe_beamc")
-    #     run(product, project_title, num_windows, pipe_grade=pipe_grade)
+    elif product == "Beam C-Channel":
+
+        pipe_grade = st.selectbox(
+            "Pipe Grade:", ["50x25", "25x12"],
+            key="pipe_beamc"
+        )
+
+        run(product, project_title, pipe_grade=pipe_grade)
 
 
 st.set_page_config(layout="wide")

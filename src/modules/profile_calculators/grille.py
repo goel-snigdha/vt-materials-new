@@ -94,20 +94,23 @@ def generate_inventory_df(data, pitch, stock_plan):
 
     all_inventory_rows = []
 
+    # Profile rows come from the global stock_plan (covers all areas combined) — add once
+    profile_rows = [
+        {
+            "Product Code": GRILLE_PRODUCTS["PROFILE"][0],
+            "Product Name": GRILLE_PRODUCTS["PROFILE"][1],
+            "Length": item["length"],
+            "Quantity": item["qty"],
+            "UOM": "m",
+            "item_order": i,
+        }
+        for i, item in enumerate(sorted(stock_plan, key=lambda x: x["length"], reverse=True))
+    ]
+    all_inventory_rows.extend(profile_rows)
+
+    sequence = len(profile_rows)
+
     for _, row in data.iterrows():
-
-        sequence = 0
-
-        profile_rows = [
-            {
-                "Product Code": GRILLE_PRODUCTS["PROFILE"][0],
-                "Product Name": GRILLE_PRODUCTS["PROFILE"][1],
-                "Length": item["length"],
-                "Quantity": item["qty"],
-                "UOM": "m",
-            }
-            for item in stock_plan
-        ]
 
         additional_items = [
             {
@@ -184,16 +187,10 @@ def generate_inventory_df(data, pitch, stock_plan):
                 "Quantity": int(math.ceil(row["total_carrier_length"] / 300)),
                 "UOM": "pcs",
             },
-            {
-                "Product Code": COMMON_ACCESSORIES["PAINT"][0],
-                "Product Name": COMMON_ACCESSORIES["PAINT"][1],
-                "Quantity": int(math.ceil(((row["divisions"] / 100 * 2) / 2))),
-                "UOM": "l",
-            },
         ]
 
-        # combine everything
-        row_items = profile_rows + additional_items + conditional_items + accs
+        # combine everything (profiles already added outside the loop)
+        row_items = additional_items + conditional_items + accs
 
         # multiply by qty_areas BEFORE appending
         for item in row_items:
@@ -202,6 +199,11 @@ def generate_inventory_df(data, pitch, stock_plan):
             sequence += 1
 
         all_inventory_rows.extend(row_items)
+
+    all_inventory_rows += [
+        {"Product Code": COMMON_ACCESSORIES["PAINT"][0], "Product Name": COMMON_ACCESSORIES["PAINT"][1], "Quantity": 1, "UOM": "l", "item_order": sequence},
+        {"Product Code": COMMON_ACCESSORIES["PAINT_BRUSH"][0], "Product Name": COMMON_ACCESSORIES["PAINT_BRUSH"][1], "Quantity": 1, "UOM": "pcs", "item_order": sequence + 1},
+    ]
 
     inv_data = (
         pd.DataFrame(all_inventory_rows)
@@ -227,6 +229,8 @@ def generate_inventory_df(data, pitch, stock_plan):
         .agg({"Quantity": "sum", "item_order": "min"})
         .sort_values(["item_order"])
         .drop(columns=["item_order"])
+        .reindex(columns=INV_COLUMNS)
+        .fillna("")
     )
 
     return inv_data
@@ -261,7 +265,7 @@ class GrilleCalculator:
 
         return True
 
-    def get_data_input():
+    def get_data_input(**kwargs):
 
         empty_df = pd.DataFrame(
             {
@@ -339,7 +343,7 @@ class GrilleCalculator:
     #     print("Raw pieces from ILP:")
     #     for length, qty in sorted(piece_totals_raw.items(), reverse=True):
     #         required = int(master_req.get(length, master_req.get(float(length), 0)))
-    #         print(f"  {length}mm → {qty} pcs (required: {required})")
+    #         print(f" {length}mm → {qty} pcs (required: {required})")
 
     #     print("\n===== CUT PLAN =====")
     #     groups = Counter()
@@ -352,7 +356,7 @@ class GrilleCalculator:
     #     for (stock, cuts), qty in sorted(groups.items(), key=lambda x: -x[1]):
     #         bar = pattern_lookup[(stock, cuts)]
     #         print(
-    #             f"  {qty:>4}x  {stock}mm  →  cuts: {list(cuts)}  |  waste/bar: {bar['waste']}mm  |  total waste: {bar['waste']*qty}mm"
+    #             f" {qty:>4}x {stock}mm  →  cuts: {list(cuts)}  |  waste/bar: {bar['waste']}mm  |  total waste: {bar['waste']*qty}mm"
     #         )
 
     #     # Piece tally
@@ -379,7 +383,7 @@ class GrilleCalculator:
     #             status = f"↑ {diff} extra"
     #         else:
     #             status = f"↓ {abs(diff)} short"
-    #         print(f"  {length}mm  →  {qty} pcs  (required: {required})  {status}")
+    #         print(f" {length}mm  → {qty} pcs  (required: {required}) {status}")
 
     #     print(master_req)
 
@@ -412,13 +416,15 @@ class GrilleCalculator:
             cut_summary_str = f"Single Piece {cut_summary[0]} mm"
 
         info_lines = [
-            (f"{divisions} Divisions", "#333", 12, True),
-            (f"@ {pitch} mm Pitch", "#333", 12, True),
-            ("", "#333", 12, True),
-            ("Breakdown", "#333", 12, False),
-            (f"{cut_summary_str}", "#333", 12, True),
-            ("Grille Direction", "#333", 12, False),
-            (f"{louver}", "#333", 12, True),
+            # Col 1 (before empty separator): Grille Direction
+            ("Grille Direction",                            "#333", 12, False),
+            (f"{louver}",                                  "#333", 12, True),
+            # empty line = column split for landscape layout
+            ("",                                           "#333", 12, True),
+            # Col 2 (after empty separator): Divisions + Breakdown
+            (f"{divisions} Divisions @ {pitch} mm Pitch",  "#333", 12, True),
+            ("Breakdown",                                   "#333", 12, False),
+            (f"{cut_summary_str}",                          "#333", 12, True),
         ]
 
         # Compute endcap sides

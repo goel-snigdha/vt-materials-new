@@ -59,7 +59,7 @@ class CNCSheetCalculator:
 
         return True
 
-    def get_data_input():
+    def get_data_input(**kwargs):
 
         empty_df = pd.DataFrame(
             {

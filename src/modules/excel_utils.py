@@ -159,6 +159,27 @@ RECT_EC_FIXING = [
 ]
 
 
+def sno_sort_key(val):
+    """Numeric tuple sort key for S. No values like '1', '2', '10', '1.1', '2.10'."""
+    if val is None or str(val).strip() == "":
+        return (float("inf"),)
+    try:
+        return tuple(int(p) for p in str(val).strip().split("."))
+    except ValueError:
+        return (float("inf"),)
+
+
+def sno_to_number(val):
+    """Convert S. No string to int or float so Excel stores it as a number."""
+    if val == "" or val is None:
+        return val
+    try:
+        f = float(val)
+        return int(f) if f == int(f) else f
+    except (ValueError, TypeError):
+        return val
+
+
 def get_xl_templates(product, dir):
     base_dir = os.path.dirname(os.path.abspath(__file__))
     path = os.path.join(base_dir, "..", "reference_xls", f"{dir}_templates")
@@ -177,6 +198,7 @@ def get_xl_templates(product, dir):
         "CNC Sheets": os.path.join(path, "cnc_sheets.xlsx"),
     }
     return XL_TEMPLATES[product]
+
 
 def value(series, column_name, qty_windows=1):
     if column_name in NON_NUMERIC_COLS:
@@ -523,47 +545,85 @@ def generate_window_image(row, common_vars, product_config):
 
         N_BARS = 20
 
-        fig, ax = plt.subplots(figsize=(10, 8))
-        if height >= width:
-            W, H = 300, 380
+        fig, ax = plt.subplots(figsize=(11, 8.5))
+        landscape = width > height
+        if not landscape:
+            # Portrait: window center-left, info+legend right
+            W, H = 480, 580
+            INFO_OFFSET_Y = 0   # window sits at y=0
+            ax.set_xlim(-120, W + 290)
+            ax.set_ylim(-72, H + 72)
         else:
-            W, H = 380, 300
+            # Landscape: window bottom, info+legend in top band
+            W, H = 620, 400
+            TOP_BAND = 160      # height reserved above the window for info+legend
+            INFO_OFFSET_Y = 0   # window still at y=0
+            ax.set_xlim(-120, W + 120)
+            ax.set_ylim(-72, H + TOP_BAND + 40)
 
-        ax.set_xlim(-120, W + 280)
-        ax.set_ylim(-70, H + 70)
         ax.set_aspect("equal")
         ax.axis("off")
 
         # ── Window frame ──
         frame = patches.Rectangle(
-            (0, 0), W, H, linewidth=2, edgecolor="#1a1a1a", facecolor="white", zorder=2
+            (0, INFO_OFFSET_Y), W, H, linewidth=2, edgecolor="#1a1a1a", facecolor="white", zorder=2
         )
         ax.add_patch(frame)
 
-        # ── Right side info panel ──
+        # ── Info panel ──
         info_lines = product_config.get("info_lines", [])
         line_gap = 22
-        info_x = W + 180
-        start_y = H * 0.7
 
-        for i, (text, color, size, bold) in enumerate(info_lines):
-            # devanagari_font = font_manager.FontProperties(
-            #     family=["Arial Unicode MS"],#, "Nirmala UI", "Arial Unicode MS"],
-            #     weight="bold" if bold else "normal",
-            #     size=size
-            # )
-            ax.text(
-                info_x,
-                start_y - i * line_gap,
-                text,
-                fontsize=size,
-                ha="center",
-                va="top",
-                color=color,
-                fontweight="bold" if bold else "normal",
-                # fontproperties=devanagari_font,
+        if not landscape:
+            # Right side panel — existing behaviour
+            # info_x = W + 180
+            info_x = W + 210
+            start_y = H * 0.7
+            for i, (text, color, size, bold) in enumerate(info_lines):
+                ax.text(
+                    info_x,
+                    start_y - i * line_gap,
+                    text,
+                    fontsize=size,
+                    ha="center",
+                    va="top",
+                    color=color,
+                    fontweight="bold" if bold else "normal",
+                )
+        else:
+            # Top band — 3 columns: [divisions+pitch] | [breakdown+direction] | [legend]
+            # col_xs = [W * 0.15, W * 0.5, W * 0.82]
+            # top_y = H + TOP_BAND
+            # col_items = [[], [], []]
+            # for idx, item in enumerate(info_lines):
+            #     col_items[idx % 3].append(item)
+            # for col_idx, col_x in enumerate(col_xs):
+            #     for row_idx, (text, color, size, bold) in enumerate(col_items[col_idx]):
+            #         ax.text(col_x, top_y - row_idx * line_gap, text, fontsize=size,
+            #                 ha="center", va="top", color=color,
+            #                 fontweight="bold" if bold else "normal")
 
-            )
+            col_xs = [W * 0.13, W * 0.5, W * 0.82]
+            top_y = H + TOP_BAND
+
+            # Split on first empty line: before → col1, after → col2, legend → col3
+            split = next((i for i, (t, *_) in enumerate(info_lines) if t == ""), len(info_lines))
+            col1_items = [item for item in info_lines[:split] if item[0] != ""]
+            col2_items = [item for item in info_lines[split:] if item[0] != ""]
+
+            for col_idx, col_items in enumerate([col1_items, col2_items]):
+                col_x = col_xs[col_idx]
+                for row_idx, (text, color, size, bold) in enumerate(col_items):
+                    ax.text(
+                        col_x,
+                        top_y - row_idx * line_gap,
+                        text,
+                        fontsize=size,
+                        ha="center",
+                        va="top",
+                        color=color,
+                        fontweight="bold" if bold else "normal",
+                    )
 
         # ── Cumulative joint positions ──
         total = sum(cuts)
@@ -814,15 +874,17 @@ def generate_window_image(row, common_vars, product_config):
             extras(ax, row, W, H, total)
 
         # ── Width annotation ──
+        width_arrow_y = H + 45 if not landscape else -30
+        width_text_y = H + 50 if not landscape else -25
         ax.annotate(
             "",
-            xy=(W, H + 45),
-            xytext=(0, H + 45),
+            xy=(W, width_arrow_y),
+            xytext=(0, width_arrow_y),
             arrowprops=dict(arrowstyle="<->", color="#333", lw=1.2),
         )
         ax.text(
             W / 2,
-            H + 50,
+            width_text_y,
             f"Width: {width} mm",
             ha="center",
             va="bottom",
@@ -888,19 +950,35 @@ def generate_window_image(row, common_vars, product_config):
         #     weight="bold" if bold else "normal",
         #     size=size
         # )
-        ax.legend(
-            handles=legend_elements,
-            loc="upper right",
-            fontsize=12,
-            frameon=True,
-            framealpha=0.9,
-            edgecolor="#ccc",
-            facecolor="white",
-            markerscale=2,
-            handlelength=2.5,
-            handleheight=1.5,
-            # prop=devanagari_font
-        )
+        if not landscape:
+            ax.legend(
+                handles=legend_elements,
+                loc="upper right",
+                fontsize=12,
+                frameon=True,
+                framealpha=0.9,
+                edgecolor="#ccc",
+                facecolor="white",
+                markerscale=2,
+                handlelength=2.5,
+                handleheight=1.5,
+            )
+        else:
+            # Place legend at top-right using axes coordinates
+            ax.legend(
+                handles=legend_elements,
+                loc="upper right",
+                bbox_to_anchor=(1.0, 1.0),
+                bbox_transform=ax.transAxes,
+                fontsize=11,
+                frameon=True,
+                framealpha=0.9,
+                edgecolor="#ccc",
+                facecolor="white",
+                markerscale=2,
+                handlelength=2.5,
+                handleheight=1.5,
+            )
 
     plt.tight_layout(pad=0.5)
     buf = BytesIO()
@@ -935,6 +1013,16 @@ def fill_cut_plan(ws, cut_plan, start_row=70):
 
     def apply_border(cell):
         cell.border = border
+
+    # Clear any existing merged cells that overlap the cut plan region to avoid corruption
+    total_rows = sum(len(e["cuts"]) for e in cut_plan) if cut_plan else 0
+    end_row = start_row + max(total_rows, 1) - 1
+    to_unmerge = [
+        str(r) for r in ws.merged_cells.ranges
+        if r.min_row <= end_row and r.max_row >= start_row
+    ]
+    for r in to_unmerge:
+        ws.unmerge_cells(r)
 
     current_row = start_row
 

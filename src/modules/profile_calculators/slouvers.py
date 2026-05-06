@@ -1,7 +1,7 @@
 import math
 import streamlit as st
-
 import pandas as pd
+from matplotlib.lines import Line2D
 
 import modules.profile_utils as profile_utils
 from modules.excel_utils import INV_COLUMNS, COMMON_ACCESSORIES
@@ -62,32 +62,35 @@ def generate_inventory_df(self, data, stock_plan):
 
     all_inventory_rows = []
 
+    sorted_plan = sorted(stock_plan, key=lambda x: x["length"], reverse=True)
+    profile_rows = [
+        {
+            "Product Code": S_LOUVER_PRODUCTS["PROFILE"][0],
+            "Product Name": S_LOUVER_PRODUCTS["PROFILE"][1],
+            "Length": item["length"],
+            "Quantity": item["qty"],
+            "UOM": "m",
+            "item_order": i,
+        }
+        for i, item in enumerate(sorted_plan)
+    ]
+    l_angle_rows = [
+        {
+            "Product Code": COMMON_ACCESSORIES["L_ANGLE_19X19"][0],
+            "Product Name": COMMON_ACCESSORIES["L_ANGLE_19X19"][1],
+            "Length": 3050,
+            "Quantity": int(math.ceil(item["length"] / 3050)),
+            "UOM": "m",
+            "item_order": len(profile_rows) + i,
+        }
+        for i, item in enumerate(sorted_plan)
+    ]
+    all_inventory_rows.extend(profile_rows)
+    all_inventory_rows.extend(l_angle_rows)
+
+    sequence = len(profile_rows) + len(l_angle_rows)
+
     for _, row in data.iterrows():
-
-        sequence = 0
-
-        profile_rows = []
-        l_angle_rows = []
-        for item in stock_plan:
-            profile_rows.append(
-                {
-                    "Product Code": S_LOUVER_PRODUCTS["PROFILE"][0],
-                    "Product Name": S_LOUVER_PRODUCTS["PROFILE"][1],
-                    "Length": item["length"],
-                    "Quantity": item["qty"],
-                    "UOM": "m",
-                }
-            )
-
-            l_angle_rows.append(
-                {
-                    "Product Code": COMMON_ACCESSORIES["L_ANGLE_19X19"][0],
-                    "Product Name": COMMON_ACCESSORIES["L_ANGLE_19X19"][1],
-                    "Length": 3050,
-                    "Quantity": int(math.ceil(item["length"] / 3050)),
-                    "UOM": "m",
-                }
-            )
 
         additional_items = [
             {
@@ -106,24 +109,12 @@ def generate_inventory_df(self, data, stock_plan):
             {
                 "Product Code": COMMON_ACCESSORIES["RIVET_6MM"][0],
                 "Product Name": COMMON_ACCESSORIES["RIVET_6MM"][1],
-                "Quantity": row["self_drill_screws"],
-                "UOM": "pcs",
-            },
-            {
-                "Product Code": COMMON_ACCESSORIES["PAINT"][0],
-                "Product Name": COMMON_ACCESSORIES["PAINT"][1],
-                "Quantity": round(row["divisions"] / 50 * 2) / 2,
-                "UOM": "l",
-            },
-            {
-                "Product Code": COMMON_ACCESSORIES["PAINT_BRUSH"][0],
-                "Product Name": COMMON_ACCESSORIES["PAINT_BRUSH"][1],
-                "Quantity": math.ceil(round(row["divisions"] / 50 * 2) / 2),
+                "Quantity": row["rivets"],
                 "UOM": "pcs",
             },
         ]
 
-        row_items = profile_rows + l_angle_rows + additional_items
+        row_items = additional_items
 
         for item in row_items:
             item["Quantity"] = int(item["Quantity"] * row["qty_areas"])
@@ -131,6 +122,11 @@ def generate_inventory_df(self, data, stock_plan):
             sequence += 1
 
         all_inventory_rows.extend(row_items)
+
+    all_inventory_rows += [
+        {"Product Code": COMMON_ACCESSORIES["PAINT"][0], "Product Name": COMMON_ACCESSORIES["PAINT"][1], "Quantity": 1, "UOM": "l", "item_order": sequence},
+        {"Product Code": COMMON_ACCESSORIES["PAINT_BRUSH"][0], "Product Name": COMMON_ACCESSORIES["PAINT_BRUSH"][1], "Quantity": 1, "UOM": "pcs", "item_order": sequence + 1},
+    ]
 
     inv_data = (
         pd.DataFrame(all_inventory_rows)
@@ -156,6 +152,8 @@ def generate_inventory_df(self, data, stock_plan):
         .agg({"Quantity": "sum", "item_order": "min"})
         .sort_values(["item_order"])
         .drop(columns=["item_order"])
+        .reindex(columns=INV_COLUMNS)
+        .fillna("")
     )
 
     return inv_data
@@ -169,7 +167,7 @@ class SLouverCalculator:
         self.pitch = vars["pitch"]
         self.areas = vars["areas"]
 
-    def get_data_input():
+    def get_data_input(**kwargs):
 
         empty_df = pd.DataFrame(
             {
@@ -227,6 +225,16 @@ class SLouverCalculator:
         else:
             cut_summary_str = f"Single Piece {cut_summary[0]} mm"
 
+        orientation = str(row.get("orientation", "Vertical")).strip()
+        L_ANGLE_COLOR = "#9B30FF"
+
+        def draw_l_angle(ax, _row, W, H, _total):
+            lw = 4
+            if orientation == "Horizontal":
+                ax.plot([0, W], [H, H], color=L_ANGLE_COLOR, linewidth=lw, zorder=6)
+            else:
+                ax.plot([0, 0], [0, H], color=L_ANGLE_COLOR, linewidth=lw, zorder=6)
+
         info_lines = [
             (f"{divisions} Divisions", "#333", 12, True),
             ("Breakdown", "#333", 12, False),
@@ -239,6 +247,10 @@ class SLouverCalculator:
             "show_joints": True,
             "bar_color": "#888",
             "info_lines": info_lines,
+            "extras": draw_l_angle,
+            "legend_extras": [
+                Line2D([0], [0], color=L_ANGLE_COLOR, linewidth=3, label="L-Angle"),
+            ],
         }
         return config
 
@@ -272,12 +284,12 @@ class SLouverCalculator:
 
         # ACCS
         data["self_drill_screws"] = data.apply(
-            lambda row: int(
-                math.ceil(
-                    (row["divisions"] * row["total_carrier_divisions"])
-                    + (row["num_carrier_pieces"] * 2)
-                )
-            ),
+            lambda row: row["num_carrier_pieces"] * 2,
+            axis=1,
+        )
+
+        data["rivets"] = data.apply(
+            lambda row: row["num_carrier_pieces"] * 3,
             axis=1,
         )
 

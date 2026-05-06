@@ -1,5 +1,6 @@
 import math
 import pandas as pd
+import streamlit as st
 from modules.excel_utils import INV_COLUMNS, PIPE_MAPPER, COMMON_ACCESSORIES
 
 # standard sheet dimesions are 8ft x 4ft
@@ -8,135 +9,151 @@ STANDARD_BEAM_C_WIDTH = 1200
 STANDARD_PROFILE_LENGTH = 2400
 
 
-class BeamCCalculator:
+def generate_offer_df(data):
 
-    def __init__(self, vars):
-        self.project_title = vars["project_title"]
-        self.window_title = vars["window_title"]
-        self.s_no = vars["s_no"]
-        self.qty_windows = vars["qty_windows"]
-        self.width = vars["width"]
-        self.length = vars["length"]
-        self.qty_windows = vars["qty_windows"]
-        self.window = vars["window"]
-        self.pipe_grade = vars["pipe_grade"]
+    offer_df_cols = {
+        "s_no": {"type": "desc",    "hide_if_zero": False},
+        "area_name": {"type": "desc",    "hide_if_zero": False},
+        "width": {"type": "desc",    "hide_if_zero": False},
+        "length": {"type": "desc",    "hide_if_zero": False},
+        "qty_areas": {"type": "desc",    "hide_if_zero": False},
+        "total_length_m": {"type": "formula", "hide_if_zero": False},
+    }
 
-    def run(self):
+    offer_df = data[offer_df_cols.keys()].copy()
+    return offer_df_cols, offer_df
 
-        buffer_width = self.width + 50
-        total_length = self.length * self.qty_windows
-        divisions_per_sheet = STANDARD_BEAM_C_WIDTH // buffer_width
-        length_per_sheet = STANDARD_BEAM_C_LENGTH * divisions_per_sheet
-        # waste_per_sheet = STANDARD_BEAM_C_WIDTH % divisions
-        no_sheets = math.ceil((total_length) / length_per_sheet)
-        # total_waste = waste_per_sheet * no_sheets
-        profile_qty = math.ceil((total_length * 2) / STANDARD_PROFILE_LENGTH)
-        used_table = {STANDARD_BEAM_C_LENGTH: divisions_per_sheet}
-        sheet_code, sheet_desc = "BC-SHT-CS", "BEAM C CHANNEL SHEET CUT TO SIZE"
 
-        # Append rows correctly
-        first_row = [
+def generate_inventory_df(data, pipe_grade):
+
+    sheet_code, sheet_desc = "BC-SHT-CS", "BEAM C CHANNEL SHEET CUT TO SIZE"
+    all_inventory_rows = []
+    items = []
+
+    for _, row in data.iterrows():
+        tl = row["total_length"]
+        items += [
             {
                 "Product Code": "BC-CHN-01",
                 "Product Name": "BEAM C CHANNEL",
                 "Length": 2500,
-                "Quantity": profile_qty,
+                "Quantity": int(row["profile_qty"]),
                 "UOM": "m",
-            }
-        ]
-
-        additional_items = [
+            },
             {
                 "Product Code": sheet_code,
                 "Product Name": sheet_desc,
-                "Quantity": divisions_per_sheet * no_sheets,
+                "Quantity": int(row["divisions_per_sheet"] * row["no_sheets"]),
                 "UOM": "pcs",
-                "Remarks": f"{buffer_width} x {STANDARD_BEAM_C_LENGTH} mm each",
+                "Remarks": f"{int(row['buffer_width'])} x {STANDARD_BEAM_C_LENGTH} mm each",
             },
             {
                 "Product Code": COMMON_ACCESSORIES["EPDM_GASKET"][0],
                 "Product Name": COMMON_ACCESSORIES["EPDM_GASKET"][1],
-                "Quantity": int(math.ceil((total_length * 2) / 1000)),
+                "Quantity": int(math.ceil((tl * 2) / 1000)),
                 "UOM": "m",
             },
             {
-                "Product Code": PIPE_MAPPER[self.pipe_grade][0],
-                "Product Name": PIPE_MAPPER[self.pipe_grade][1],
+                "Product Code": PIPE_MAPPER[pipe_grade][0],
+                "Product Name": PIPE_MAPPER[pipe_grade][1],
                 "Length": 3650,
-                "Quantity": int(math.ceil((total_length * 2) / 3650)),
+                "Quantity": int(math.ceil((tl * 2) / 3650)),
                 "UOM": "m",
             },
             {
                 "Product Code": COMMON_ACCESSORIES["RIVET_6MM"][0],
                 "Product Name": COMMON_ACCESSORIES["RIVET_6MM"][1],
-                "Quantity": int(math.ceil(total_length / 300)),
+                "Quantity": int(math.ceil(tl / 300)),
                 "UOM": "pcs",
             },
             {
                 "Product Code": "AC-GN-SB",
                 "Product Name": "SILICON BOTTLE BLACK",
-                "Quantity": int(math.ceil(total_length / 3000)),
+                "Quantity": int(math.ceil(tl / 3000)),
                 "UOM": "pcs",
             },
         ]
 
-        if self.pipe_grade == "50x25":
-            screw_rows = [
+        if pipe_grade == "50x25":
+            items += [
                 {
                     "Product Code": COMMON_ACCESSORIES["FULL_THREADED_75MM"][0],
                     "Product Name": COMMON_ACCESSORIES["FULL_THREADED_75MM"][1],
-                    "Quantity": int(math.ceil(total_length / 300)),
+                    "Quantity": int(math.ceil(tl / 300)),
                     "UOM": "pcs",
                 },
                 {
                     "Product Code": COMMON_ACCESSORIES["PVC_GITTY_50X10MM"][0],
                     "Product Name": COMMON_ACCESSORIES["PVC_GITTY_50X10MM"][1],
-                    "Quantity": int(math.ceil(total_length / 300)),
+                    "Quantity": int(math.ceil(tl / 300)),
                     "UOM": "pcs",
                 },
             ]
-        elif self.pipe_grade == "25x12":
-            screw_rows = [
-                {
-                    "Product Code": COMMON_ACCESSORIES["SELF_DRILLING_25MM"][0],
-                    "Product Name": COMMON_ACCESSORIES["SELF_DRILLING_25MM"][1],
-                    "Quantity": int(math.ceil(total_length / 300)),
-                    "UOM": "pcs",
-                }
-            ]
+        elif pipe_grade == "25x12":
+            items.append({
+                "Product Code": COMMON_ACCESSORIES["SELF_DRILLING_25MM"][0],
+                "Product Name": COMMON_ACCESSORIES["SELF_DRILLING_25MM"][1],
+                "Quantity": int(math.ceil(tl / 300)),
+                "UOM": "pcs",
+            })
 
-        l_angle = [{"Product Name": "SELECT L-ANGLES", "UOM": "m"}]
+        items.append({"Product Name": "SELECT L-ANGLES", "UOM": "m"})
+        all_inventory_rows.extend(items)
 
-        all_rows = []
-        for block in [
-            first_row,
-            additional_items,
-            screw_rows,
-            l_angle,
-        ]:
-            all_rows.extend(block)
+    return pd.DataFrame(all_inventory_rows).reindex(columns=INV_COLUMNS).fillna("")
 
-        inventory_out = pd.DataFrame(all_rows).reindex(columns=INV_COLUMNS).fillna("")
 
-        results = pd.DataFrame(
-            {
-                "Project Title": [self.project_title],
-                "Window": [self.window + 1],
-                "Area Name": [self.window_title],
-                "S. No": [self.s_no],
-                "Width (mm)": [self.width],
-                "Length (mm)": [self.length],
-                "Area Qty (nos)": [self.qty_windows],
-                "Total Product Length (m)": [(self.length) / 1000],
-                "EPDM Rubber Length (m)": [(self.length * 2) / 1000],
-                "Profile Length (m)": [(self.length * 2) / 1000],
-                "Aluminium Pipe (m)": [(self.length * 2) / 1000],
-                "Full Threaded 75mm Screws (pcs)": [math.ceil(self.length / 400)],
-                "PVC Gitty (pcs)": [math.ceil(self.length / 400)],
-                "Total Rivets (pcs)": [math.ceil(self.length / 400)],
-                "Used Table": [used_table],
-                "Waste Table": [{}],
-            }
+class BeamCCalculator:
+
+    def __init__(self, vars):
+        self.vars = vars
+        self.project_title = vars["project_title"]
+        self.areas = vars["areas"]
+        self.pipe_grade = vars["pipe_grade"]
+
+    def get_data_input(**kwargs):
+
+        empty_df = pd.DataFrame({
+            "s_no":      pd.Series(dtype="str"),
+            "area_name": pd.Series(dtype="str"),
+            "width":     pd.Series(dtype="int"),
+            "length":    pd.Series(dtype="int"),
+            "qty_areas": pd.Series(dtype="int"),
+        })
+
+        required_cols = [
+            "width", "length", "qty_areas",
+        ]
+
+        input_data = st.data_editor(
+            data=empty_df,
+            column_config={
+                "s_no":      st.column_config.TextColumn("S. No",         required=False),
+                "area_name": st.column_config.TextColumn("Area Name",     required=False),
+                "width":     st.column_config.NumberColumn("Width (mm)",  min_value=1, step=1, required=True),
+                "length":    st.column_config.NumberColumn("Length (mm)", min_value=1, step=1, required=True),
+                "qty_areas": st.column_config.NumberColumn("Similar Areas", min_value=1, step=1, required=True),
+            },
+            num_rows="dynamic",
         )
 
-        return results, inventory_out, True
+        return input_data, required_cols
+
+    def run(self):
+
+        data = self.areas.copy()
+
+        data["buffer_width"] = data["width"] + 50
+        data["divisions_per_sheet"] = data["buffer_width"].apply(
+            lambda bw: 1 if bw > STANDARD_BEAM_C_WIDTH else STANDARD_BEAM_C_WIDTH // bw
+        )
+        data["length_per_sheet"] = STANDARD_BEAM_C_LENGTH * data["divisions_per_sheet"]
+        data["total_length"] = data["length"] * data["qty_areas"]
+        data["total_length_m"] = data["length"] * data["qty_areas"] / 1000
+        data["no_sheets"] = data.apply(lambda r: math.ceil(r["total_length"] / r["length_per_sheet"]), axis=1)
+        data["profile_qty"] = data["total_length"].apply(lambda tl: math.ceil((tl * 2) / STANDARD_PROFILE_LENGTH))
+
+        offer_df_cols, offer_df = generate_offer_df(data)
+        inventory_out = generate_inventory_df(data, self.pipe_grade)
+
+        return [data, offer_df_cols, offer_df, inventory_out]
