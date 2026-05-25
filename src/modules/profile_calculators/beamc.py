@@ -12,12 +12,12 @@ STANDARD_PROFILE_LENGTH = 2400
 def generate_offer_df(data):
 
     offer_df_cols = {
-        "s_no": {"type": "desc",    "hide_if_zero": False},
-        "area_name": {"type": "desc",    "hide_if_zero": False},
-        "width": {"type": "desc",    "hide_if_zero": False},
-        "length": {"type": "desc",    "hide_if_zero": False},
-        "qty_areas": {"type": "desc",    "hide_if_zero": False},
-        "total_length_m": {"type": "formula", "hide_if_zero": False},
+        "s_no": {"type": "desc", "hide_if_zero": False},
+        "area_name": {"type": "desc", "hide_if_zero": False},
+        "width": {"type": "desc", "hide_if_zero": False},
+        "length": {"type": "desc", "hide_if_zero": False},
+        "qty_areas": {"type": "desc", "hide_if_zero": False},
+        "length_m": {"type": "formula", "hide_if_zero": False},
     }
 
     offer_df = data[offer_df_cols.keys()].copy()
@@ -28,17 +28,17 @@ def generate_inventory_df(data, pipe_grade):
 
     sheet_code, sheet_desc = "BC-SHT-CS", "BEAM C CHANNEL SHEET CUT TO SIZE"
     all_inventory_rows = []
-    items = []
 
     for _, row in data.iterrows():
         tl = row["total_length"]
-        items += [
+        items = [
             {
                 "Product Code": "BC-CHN-01",
                 "Product Name": "BEAM C CHANNEL",
                 "Length": 2500,
                 "Quantity": int(row["profile_qty"]),
                 "UOM": "m",
+                "item_order": 0,
             },
             {
                 "Product Code": sheet_code,
@@ -46,12 +46,14 @@ def generate_inventory_df(data, pipe_grade):
                 "Quantity": int(row["divisions_per_sheet"] * row["no_sheets"]),
                 "UOM": "pcs",
                 "Remarks": f"{int(row['buffer_width'])} x {STANDARD_BEAM_C_LENGTH} mm each",
+                "item_order": 1,
             },
             {
                 "Product Code": COMMON_ACCESSORIES["EPDM_GASKET"][0],
                 "Product Name": COMMON_ACCESSORIES["EPDM_GASKET"][1],
                 "Quantity": int(math.ceil((tl * 2) / 1000)),
                 "UOM": "m",
+                "item_order": 2,
             },
             {
                 "Product Code": PIPE_MAPPER[pipe_grade][0],
@@ -59,18 +61,21 @@ def generate_inventory_df(data, pipe_grade):
                 "Length": 3650,
                 "Quantity": int(math.ceil((tl * 2) / 3650)),
                 "UOM": "m",
+                "item_order": 3,
             },
             {
                 "Product Code": COMMON_ACCESSORIES["RIVET_6MM"][0],
                 "Product Name": COMMON_ACCESSORIES["RIVET_6MM"][1],
                 "Quantity": int(math.ceil(tl / 300)),
                 "UOM": "pcs",
+                "item_order": 4,
             },
             {
                 "Product Code": "AC-GN-SB",
                 "Product Name": "SILICON BOTTLE BLACK",
                 "Quantity": int(math.ceil(tl / 3000)),
                 "UOM": "pcs",
+                "item_order": 5,
             },
         ]
 
@@ -81,12 +86,14 @@ def generate_inventory_df(data, pipe_grade):
                     "Product Name": COMMON_ACCESSORIES["FULL_THREADED_75MM"][1],
                     "Quantity": int(math.ceil(tl / 300)),
                     "UOM": "pcs",
+                    "item_order": 6,
                 },
                 {
                     "Product Code": COMMON_ACCESSORIES["PVC_GITTY_50X10MM"][0],
                     "Product Name": COMMON_ACCESSORIES["PVC_GITTY_50X10MM"][1],
                     "Quantity": int(math.ceil(tl / 300)),
                     "UOM": "pcs",
+                    "item_order": 7,
                 },
             ]
         elif pipe_grade == "25x12":
@@ -95,12 +102,30 @@ def generate_inventory_df(data, pipe_grade):
                 "Product Name": COMMON_ACCESSORIES["SELF_DRILLING_25MM"][1],
                 "Quantity": int(math.ceil(tl / 300)),
                 "UOM": "pcs",
+                "item_order": 6,
             })
 
-        items.append({"Product Name": "SELECT L-ANGLES", "UOM": "m"})
+        items.append({"Product Name": "SELECT L-ANGLES", "UOM": "m", "item_order": 8})
         all_inventory_rows.extend(items)
 
-    return pd.DataFrame(all_inventory_rows).reindex(columns=INV_COLUMNS).fillna("")
+    inv_data = (
+        pd.DataFrame(all_inventory_rows)
+        .reindex(columns=INV_COLUMNS + ["item_order"])
+        .fillna("")
+    )
+    inv_data = (
+        inv_data.groupby(
+            ["Product Code", "Product Name", "Length", "UOM",
+             "Colour", "Finish", "CNC Hole Distance", "Remarks"],
+            as_index=False, sort=False,
+        )
+        .agg({"Quantity": "sum", "item_order": "min"})
+        .sort_values("item_order")
+        .drop(columns=["item_order"])
+        .reindex(columns=INV_COLUMNS)
+        .fillna("")
+    )
+    return inv_data
 
 
 class BeamCCalculator:
@@ -144,6 +169,7 @@ class BeamCCalculator:
 
         data = self.areas.copy()
 
+        data["length_m"] = data["length"] / 1000
         data["buffer_width"] = data["width"] + 50
         data["divisions_per_sheet"] = data["buffer_width"].apply(
             lambda bw: 1 if bw > STANDARD_BEAM_C_WIDTH else STANDARD_BEAM_C_WIDTH // bw
