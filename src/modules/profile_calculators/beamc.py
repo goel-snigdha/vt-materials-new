@@ -17,7 +17,7 @@ def generate_offer_df(data):
         "width": {"type": "desc", "hide_if_zero": False},
         "length": {"type": "desc", "hide_if_zero": False},
         "qty_areas": {"type": "desc", "hide_if_zero": False},
-        "length_m": {"type": "formula", "hide_if_zero": False},
+        "length_ft": {"type": "formula", "hide_if_zero": False},
     }
 
     offer_df = data[offer_df_cols.keys()].copy()
@@ -170,6 +170,9 @@ class BeamCCalculator:
         data = self.areas.copy()
 
         data["length_m"] = data["length"] / 1000
+        # Beam length in feet, rounded up to the nearest foot (offer sheet only;
+        # all other calcs use the metre columns). 1 ft = 304.8 mm.
+        data["length_ft"] = data["length"].apply(lambda l: math.ceil(l / 304.8))
         data["buffer_width"] = data["width"] + 50
         data["divisions_per_sheet"] = data["buffer_width"].apply(
             lambda bw: 1 if bw > STANDARD_BEAM_C_WIDTH else STANDARD_BEAM_C_WIDTH // bw
